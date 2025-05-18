@@ -1,0 +1,46 @@
+{
+    "readSpeed": 300,
+    "autoScroll": true,
+    "autoNextChapter": true,
+    "debugMode": true,
+    "scrollSpeedIndex": "1",
+    "scrollParams": {
+        "0": { "duration": 3200, "interval": 100000 }, 
+        "1": { "duration": 1600, "interval": 4000 }, 
+        "2": { "duration": 800, "interval": 2000 }  
+    },
+    "floatyOpacity": 0.8,
+    "floatyTheme": "#2196F3",
+    "theme": "#2196F3",
+    "floatyPosition": {
+        "x": -1,
+        "y": 300
+    },
+    "useAccessibilityService": true,
+    "tryAlternateMethod": true,
+    "firstRun": true,
+    "activationKey": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiIsImFkbWluIjp0cnVlfQ.HyGqUXiIrB2gcSs7o-7ejNFwF2hmgSEMQ-KVMMliltwXkYOh_Mib0GX2kSJZUdqyPrtpaMEIhEY6t24x7MJDNQ",
+    "logging": {
+        "enabled": true,
+        "logLevel": "info",
+        "logToFile": true,
+        "logToConsole": true,
+        "logToast": true,
+        "maxFileSize": 1048576,
+        "maxFiles": 5,
+        "logDir": "./logs",
+        "errorReport": false,
+        "reportUrl": "",
+        "deviceInfo": true
+    },
+    "readComic":{
+        "running":true,
+        "isPaused":false,
+        "shouldExit":false,
+        "currentComicId":1,
+        "currentChapterId":1,
+        "currentPage":1,
+        "currentPageCount":1
+    },
+    "version": "1.0.0"
+}
