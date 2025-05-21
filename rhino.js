@@ -11,18 +11,22 @@ logger = utils.initLogger("rhino", appConfig);
 var packageName = "uni.UNIE701BEA";
 
 var args = engines.myEngine().execArgv;
-console.log("传递的参数:---- " + JSON.stringify(args));
 
-// 监听配置变更
+// 添加控制命令的事件监听器
+
+// 监听配置变更     
 if (typeof events !== 'undefined' && events.broadcast) {
     events.broadcast.on("config_updated", function (updatedConfig) {
-        console.log("rhino.js 检测到配置更新:=============== ", updatedConfig)
+        console.log("rhino.js 检测到配置更新:=============== ", updatedConfig.readComic.isPaused)
         appConfig.debugMode = updatedConfig.debugMode;
-        appConfig.autoTurnPage = updatedConfig.autoTurnPage;
+        appConfig.autoScroll = updatedConfig.autoScroll;
         appConfig.autoNextChapter = updatedConfig.autoNextChapter;
         appConfig.readSpeed = updatedConfig.readSpeed;
         appConfig.scrollSpeedIndex = updatedConfig.scrollSpeedIndex;
         appConfig.scrollParams = updatedConfig.scrollParams;
+        appConfig.readComic.running = updatedConfig.readComic.running;
+        appConfig.readComic.shouldExit = updatedConfig.readComic.shouldExit;
+        appConfig.readComic.isPaused = updatedConfig.readComic.isPaused;
         // logger.info("rhino.js 检测到配置更新: " + JSON.stringify({
         //     debugMode: appConfig.debugMode,
         //     autoTurnPage: appConfig.autoTurnPage,
@@ -31,8 +35,7 @@ if (typeof events !== 'undefined' && events.broadcast) {
         // }));
     });
 }
-console.log("检查并确保无障碍服务正常运行22222222222", appConfig);
-console.log("检查并确保无障碍服务正常运行3333", appConfig.scrollParams["1"]);
+
 //! 0. 检查并确保无障碍服务正常运行
 function ensureAccessibilityService() {
     // 检查无障碍服务是否启用
@@ -120,6 +123,9 @@ function safeStartApp(packageName) {
             toast("请确保无障碍服务已启用并正常运行");
             return false;
         }
+        
+        // 检查控制状态
+        if (!checkControlStatus()) return false;
 
         // 尝试解锁屏幕（如果锁定状态）
         try {
@@ -134,6 +140,9 @@ function safeStartApp(packageName) {
         } catch (e) {
             logger.warn("处理屏幕唤醒时出错: " + e);
         }
+        
+        // 再次检查控制状态
+        if (!checkControlStatus()) return false;
 
         // 检查后台启动权限（仅在Android 10及以上）
         if (device.sdkInt >= 29) { // Android 10 = API 29
@@ -145,6 +154,9 @@ function safeStartApp(packageName) {
             sleep(5000);
         }
 
+        // 再次检查控制状态
+        if (!checkControlStatus()) return false;
+
         // 尝试直接启动
         if (app.launch(packageName)) {
             logger.info("应用启动成功");
@@ -152,9 +164,15 @@ function safeStartApp(packageName) {
             return true;
         }
 
+        // 再次检查控制状态
+        if (!checkControlStatus()) return false;
+
         // 如果直接启动失败，尝试通过主屏幕图标启动
         home();
         sleep(1000);
+
+        // 检查控制状态
+        if (!checkControlStatus()) return false;
 
         // 查找并点击应用图标
         var appIcon = text(app.getAppName(packageName)).findOne(3000);
@@ -188,6 +206,9 @@ function checkLogin() {
     // 等待应用启动并加载内容
     toast("等待应用加载...");
     while (new Date().getTime() - startTime < timeout) {
+        // 检查控制状态
+        if (!checkControlStatus()) return false;
+        
         if (id("contentWrapper").exists()) {
             logger.info('检测成功');
             break;
@@ -203,6 +224,9 @@ function checkLogin() {
 
     // 休眠短暂时间，确保UI完全加载
     sleep(1500);
+    
+    // 检查控制状态
+    if (!checkControlStatus()) return false;
 
     //todo 检测是否登录成功 并点击第二个nav
     try {
@@ -220,6 +244,9 @@ function checkLogin() {
             logger.error('导航元素发生变化,未达到预期');
             toast("导航元素与预期不符，尝试继续...");
         }
+        
+        // 检查控制状态
+        if (!checkControlStatus()) return false;
 
         //todo 点击第二个nav
         sleep(1000);
@@ -262,15 +289,22 @@ function startWatchComic() {
 
 //!? 等待函数，带倒计时
 function waitWithCountdown(seconds, message) {
-    for (let i = seconds; i > 0; i--) {
-        if (typeof appConfig.readComic !== 'undefined' && !appConfig.readComic.running) {
-            throw new Error("停止命令已收到");
-        }
-        toast(message + "，" + i + "秒...");
+    if (!message) {
+        message = "等待中";
+    }
+    
+    logger.info("开始等待: " + message + ", " + seconds + "秒");
+    
+    for (var i = seconds; i > 0; i--) {
+        // 使用统一的控制状态检查
+        if (!checkControlStatus()) return false;
+        
+        toast(message + ": " + i + "秒");
         sleep(1000);
     }
+    
+    return true;
 }
-
 
 //!? 点击获取章节信息并观看漫画
 function chapterAndStartLook() {
@@ -310,8 +344,11 @@ function chapterAndStartLook() {
     // 点击观看漫画
     try {
         var continueButton = text('続きを読む').findOne(5000);
+        var continueButton2 = text('読み始める').findOne(5000);
         if (continueButton) {
             continueButton.clickCenter();
+        } else if (continueButton2) {
+            continueButton2.clickCenter();
         } else {
             toast("未找到观看按钮");
             return false;
@@ -341,21 +378,8 @@ function scrollToBottom() {
     toast("开始滚动页面...");
 
     while (!isScrollEnd && count < maxScrollAttempts && appConfig.readComic.running) {
-        // 检查是否应该退出
-        if (appConfig.readComic.shouldExit) {
-            toast("收到退出命令，正在停止滚动");
-            return false;
-        }
-
-        // 检查是否暂停
-        while (appConfig.readComic.isPaused && appConfig.readComic.running && !appConfig.readComic.shouldExit) {
-            sleep(500); // 暂停期间每500毫秒检查一次状态
-        }
-
-        // 如果退出循环后不再运行，则直接返回
-        if (!appConfig.readComic.running ) {
-            return false;
-        }
+        // 使用统一的控制状态检查
+        if (!checkControlStatus()) return false;
 
         count++;
 
@@ -403,6 +427,9 @@ function scrollToBottom() {
 
         // 等待滚动动画完成
         sleep(appConfig.readSpeed);
+        
+        // 再次检查控制状态
+        if (!checkControlStatus()) return false;
 
         // 获取滚动后的位置
         // 这里使用一个简单的方法来检测是否到达底部：
@@ -429,27 +456,185 @@ function scrollToBottom() {
         toast("达到最大滚动次数，停止滚动");
     }
 
+    // 确保在返回前再次检查运行状态
     return isScrollEnd && appConfig.readComic.running;
 }
 
 //!? 点击下一话
 function clickNext() {
+    // 检查控制状态
+    if (!checkControlStatus()) return false;
+    
     try {
         click(250, 250);
         sleep(500);
+        
+        // 再次检查控制状态
+        if (!checkControlStatus()) return false;
 
         var nextButton = text('次の言葉').findOne(5000);
         if (nextButton) {
             nextButton.clickCenter();
+            return true;
         } else {
             toast("未找到'次の言葉'按钮");
+            return false;
         }
     } catch (e) {
         logger.error("点击下一话出错: " + e);
         toast("点击下一话出错");
+        return false;
     }
 }
 
+// 添加一个全局的检查控制命令状态的函数
+function checkControlStatus() {
+    console.log("checkControlStatus",appConfig.readComic.running,appConfig.readComic.shouldExit,appConfig.readComic.isPaused);
+    // 检查是否应该退出
+    if (!appConfig.readComic.running || appConfig.readComic.shouldExit) {
+        logger.info("检测到停止或退出信号，终止当前操作");
+        return false;
+    }
+    
+    // 检查是否暂停
+    if (appConfig.readComic.isPaused) {
+        // 显示暂停状态并等待恢复
+        toast("已暂停，等待继续...");
+        logger.info("操作已暂停，等待继续命令");
+        
+        // 等待直到恢复或退出
+        while (appConfig.readComic.isPaused && appConfig.readComic.running && !appConfig.readComic.shouldExit) {
+            sleep(300); // 暂停期间每300毫秒检查一次状态
+        }
+        
+        // 检查退出暂停循环的原因
+        if (!appConfig.readComic.running || appConfig.readComic.shouldExit) {
+            logger.info("在暂停状态收到停止/退出命令，中断操作");
+            return false;
+        }
+        
+        // 恢复后显示提示
+        toast("继续操作...");
+        logger.info("操作已继续");
+    }
+    
+    return true;
+}
+
+// 在文件开始添加一个全局错误处理函数
+// process.on("uncaughtException", function(e) {
+//     try {
+//         logger.error("未捕获的异常: " + e + "\n堆栈: " + e.stack);
+//         toast("发生错误: " + e.message);
+//         
+//         // 发送错误事件
+//         if (events && events.broadcast) {
+//             events.broadcast.emit("script_error", {
+//                 message: e.message,
+//                 stack: e.stack
+//             });
+//         }
+//     } catch (err) {
+//         console.error("处理未捕获异常时出错: " + err);
+//     }
+// });
+
+// 使用 AutoJs Pro 兼容的错误处理方式
+try {
+    // 创建一个自定义的错误处理函数
+    var customErrorHandler = function(err) {
+        try {
+            logger.error("未捕获的异常: " + err + "\n堆栈: " + (err.stack || ""));
+            toast("发生错误: " + err.message);
+            
+            // 发送错误事件
+            if (events && events.broadcast) {
+                events.broadcast.emit("script_error", {
+                    message: err.message,
+                    stack: err.stack || ""
+                });
+            }
+        } catch (error) {
+            console.error("处理未捕获异常时出错: " + error);
+        }
+    };
+    
+    // 在AutoJs环境中设置全局错误处理
+    if (typeof java !== 'undefined') {
+        // 设置Java未捕获异常处理器
+        var Thread = java.lang.Thread;
+        if (Thread.setDefaultUncaughtExceptionHandler) {
+            Thread.setDefaultUncaughtExceptionHandler(new java.lang.Thread.UncaughtExceptionHandler({
+                uncaughtException: function(thread, ex) {
+                    var error = new Error("Java线程异常: " + ex);
+                    error.javaException = ex;
+                    customErrorHandler(error);
+                }
+            }));
+            logger.info("已设置Java异常处理器");
+        }
+    }
+    
+    // 覆盖默认的错误事件
+    if (typeof engines !== 'undefined') {
+        engines.on('uncaughtException', function(err) {
+            customErrorHandler(err);
+        });
+        logger.info("已设置脚本错误处理器");
+    }
+} catch (e) {
+    console.error("设置错误处理器时出错: " + e);
+}
+
+// 设置全局状态检查
+setInterval(function() {
+    // 周期性检查状态，确保响应控制命令
+    if (!appConfig.readComic.running || appConfig.readComic.shouldExit) {
+        // 如果检测到停止或退出命令，终止所有操作
+        try {
+            // 确保threads对象存在，避免未定义错误
+            if (typeof threads !== 'undefined' && threads.shutDownAll) {
+                threads.shutDownAll();
+            }
+            
+            // 确保engines对象存在，可以用于停止当前引擎
+            if (appConfig.readComic.shouldExit) {
+                try {
+                    // 尝试停止当前引擎
+                    if (engines && engines.myEngine) {
+                        var currentEngine = engines.myEngine();
+                        if (currentEngine && currentEngine.forceStop) {
+                            // 记录退出日志
+                            logger.info("正在强制停止当前引擎");
+                            // 延迟一点时间再退出，确保日志能够写入
+                            setTimeout(function() {
+                                try {
+                                    currentEngine.forceStop();
+                                } catch(e) {
+                                    // 忽略退出时的错误
+                                }
+                            }, 500);
+                        } else {
+                            exit(); // 如果无法使用forceStop则使用exit
+                        }
+                    } else {
+                        exit(); // 如果无法获取当前引擎则使用exit
+                    }
+                } catch (e) {
+                    logger.error("尝试停止引擎失败: " + e);
+                    exit(); // 如果发生异常，仍然尝试使用exit退出
+                }
+            }
+        } catch (e) {
+            logger.error("终止操作时出错: " + e);
+            // 尝试使用备用方法终止脚本
+            if (appConfig.readComic.shouldExit) {
+                toast("正在使用备用方法退出...");
+                exit();
+            }
+        }
+    }
+}, 1000);
 
 //! 主程序开始执行
 try {
@@ -457,86 +642,159 @@ try {
     if (!ensureAccessibilityService()) {
         throw new Error("无障碍服务未正常运行，脚本终止");
     }
-
-    // 启动应用
-    var duration = appConfig.scrollParams["0"]
-    if (safeStartApp(packageName)) {
-        // 给应用足够时间启动,阅读
-        sleep(duration.duration); 
-        // 检查登录状态
-        var isLogin = checkLogin();
-        if(!isLogin) {
-            logger.info("未登录成功,脚本终止");
-            exit();
-        }
-        sleep(duration.duration); 
-        // 进入章节页面
-        var isStartReadComic = startWatchComic();
-        if(!isStartReadComic) {
-            logger.info("未开始阅读,脚本终止");
-            exit();
-        }
-        sleep(duration.duration); 
-        // 点击观看漫画
-        var newChapter = chapterAndStartLook();
-        if(newChapter === 0) {
-            logger.info("未获取到章节信息,使用默认章节信息");
-        }
-        var currentChapter = 1;
-        if (newChapter && currentChapter && newChapter > currentChapter) {
-            for (var i = 0; i < newChapter && appConfig.readComic.running && !appConfig.readComic.isPaused; i++) {
+    
+    // 主循环 - 当需要停止时会跳出此循环
+    while (appConfig.readComic.running && !appConfig.readComic.shouldExit) {
+        // 启动应用
+        var duration = appConfig.scrollParams["0"]
+        if (safeStartApp(packageName)) {
+            // 检查控制状态
+            if (!checkControlStatus()) break;
+            
+            // 给应用足够时间启动,阅读
+            sleep(duration.duration);
+            
+            // 检查登录状态
+            var isLogin = checkLogin();
+            if (!isLogin) {
+                logger.info("未登录成功,脚本终止");
+                break;
+            }
+            
+            // 检查控制状态
+            if (!checkControlStatus()) break;
+            
+            sleep(duration.duration);
+            
+            // 进入章节页面
+            var isStartReadComic = startWatchComic();
+            if (!isStartReadComic) {
+                logger.info("未开始阅读,脚本终止");
+                break;
+            }
+            
+            // 检查控制状态
+            if (!checkControlStatus()) break;
+            
+            sleep(duration.duration);
+            
+            // 点击观看漫画
+            var newChapter = chapterAndStartLook();
+            if (newChapter === 0) {
+                logger.info("未获取到章节信息,使用默认章节信息");
+                newChapter = 5; // 默认章节数
+            }
+            
+            var currentChapter = 1;
+            
+            // 章节阅读循环
+            while (currentChapter <= newChapter && appConfig.readComic.running && !appConfig.readComic.shouldExit) {
+                // 检查控制状态
+                if (!checkControlStatus()) break;
+                
                 toast("开始阅读第" + currentChapter + "话");
-                // 等待加载20s 并在页面中提示出来
-                waitWithCountdown(5, "正在加载第" + currentChapter + "话");
-
-                // 如果在等待过程中收到退出命令，则直接退出
-                if (!appConfig.readComic.running || appConfig.readComic.isPaused) {
-                    toast("收到退出命令，正在停止运行");
-                    break;
+                
+                // 等待加载并在页面中提示
+                if (!waitWithCountdown(20, "正在加载第" + currentChapter + "话")) {
+                    break; // 如果等待被中断，则跳出循环
                 }
-
+                
+                // 检查控制状态
+                if (!checkControlStatus()) break;
+                
+                // 滚动页面
                 var scrollSuccess = scrollToBottom();
-                sleep(duration.duration); 
-
-                // 如果在滚动过程中收到退出命令，则直接退出
-                if (!appConfig.readComic.running || appConfig.readComic.isPaused) {
-                    toast("收到退出命令，正在停止运行");
+                
+                // 检查滚动结果
+                if (!scrollSuccess || !appConfig.readComic.running || appConfig.readComic.shouldExit) {
+                    logger.info("滚动失败或收到停止/退出命令，中断阅读");
                     break;
                 }
-
-                sleep(1000);
+                
+                sleep(duration.duration);
                 utils.performGC();
-
+                
                 // 根据设置决定是否自动进入下一章
                 if (appConfig.autoNextChapter) {
-                    clickNext();
-                    currentChapter++;
-                    // 等待加载新章节
-                    waitWithCountdown(5, "正在加载下一话");
-                } else {
-                    if (!appConfig.readComic.isPaused) {
-                        toast("滚动失败或收到停止命令，不再继续阅读");
+                    if (!clickNext()) {
+                        logger.info("点击下一话失败");
                         break;
                     }
+                    currentChapter++;
+                    // 等待加载新章节
+                    if (!waitWithCountdown(5, "正在加载下一话")) {
+                        break;
+                    }
+                } else {
                     toast("自动下一章已禁用，请手动进入下一章");
                     // 等待用户手动操作
-                    waitWithCountdown(30, "等待用户手动操作");
+                    if (!waitWithCountdown(30, "等待用户手动操作")) {
+                        break;
+                    }
                     break; // 退出循环，不再自动阅读下一章
                 }
             }
+            
+            // 如果因为控制命令而退出，这里会执行
+            if (!appConfig.readComic.running || appConfig.readComic.shouldExit) {
+                logger.info("因控制命令退出章节阅读循环");
+                break;
+            }
+            
+            logger.info("章节阅读完成");
+            toast("章节阅读完成");
+            
+            // 如果需要循环读取，可以在这里添加代码
+            // 例如：重新开始或者退出
+            if (appConfig.readComic.isPaused) {
+                // 如果是暂停状态，则重新开始
+                logger.info("检测到暂停状态，将重新开始");
+                appConfig.readComic.isPaused = false;
+                continue; // 重新开始
+            } else {
+                // 否则结束循环
+                break;
+            }
+            
         } else {
-            logger.info("可能未成功进入下一章");
+            logger.error("应用启动失败，请手动启动应用后重试");
+            break;
         }
-        sleep(duration.duration); 
-    } else {
-        throw new Error("应用启动失败，请手动启动应用后重试");
     }
-
-    // 执行其余代码
-    logger.info("应用启动并登录完成，继续执行...");
+    
+    logger.info("主循环已退出");
+    
+    // 如果是因为暂停而退出的，可以在这里处理重启逻辑
+    if (appConfig.readComic.isPaused && appConfig.readComic.running && !appConfig.readComic.shouldExit) {
+        logger.info("检测到暂停状态，等待继续命令");
+        toast("已暂停，等待继续...");
+        
+        // 等待继续命令
+        while (appConfig.readComic.isPaused && appConfig.readComic.running && !appConfig.readComic.shouldExit) {
+            sleep(500);
+        }
+        
+        // 如果收到继续命令且不是停止或退出
+        if (appConfig.readComic.running && !appConfig.readComic.shouldExit) {
+            logger.info("收到继续命令，将重新开始脚本");
+            toast("继续执行，重新开始...");
+            
+            // 重新执行脚本
+            engines.execScriptFile("./rhino.js", {
+                arguments: {
+                    action: "restart",
+                    config: appConfig
+                }
+            });
+            
+            // 退出当前脚本实例
+            exit();
+        }
+    }
 
 } catch (e) {
     logger.error("执行过程中出错: " + e);
+    toast("执行出错: " + e.message);
 }
 
 logger.info("rhino脚本执行完成");

@@ -11,14 +11,11 @@ utils.requestPermissions();
 // 注意: 配置和控制器文件会在执行时返回对象供使用
 // 使用 engines.execScriptFile 执行这些文件
 var appConfig = null;
-var comicController = null;
+var rhinoEngine = null;
 var logger = null;
 // 跟踪悬浮窗的状态
 let floatyWindow = null;
 let isFloatyExpanded = false;
-// 修改这里：使用自定义事件名称，避免与其他脚本冲突
-// 使用唯一的事件名称，例如添加时间戳
-const SCRIPT_EXIT_EVENT = "comic_script_exit_" + Date.now();
 
 // 在文件顶部添加一个全局变量来跟踪悬浮窗的创建者
 let floatyCreatedByMain = false;
@@ -34,57 +31,6 @@ appConfig.update = config.updateConfig;
 //! 2. 初始化日志系统
 logger = utils.initLogger("main", appConfig);
 
-//! 4. 添加一个事件通信机制用于脚本之间通讯使用
-events.broadcast.on("controller_request", function (action, arg1, arg2, arg3) {
-    try {
-        // 将参数转换为数组以保持原来的功能
-        // var args = [];
-        // if (arguments.length > 1) {
-        //     for (var i = 1; i < arguments.length; i++) {
-        //         args.push(arguments[i]);
-        //     }
-        // }
-
-        logger.info("收到控制器请求: " + action + ", 参数: " + JSON.stringify(args));
-
-        let result = null;
-        switch (action) {
-            case "start":
-                result = comicController.start.apply(comicController, args);
-                break;
-            case "stop":
-                result = comicController.stop();
-                break;
-            case "pause":
-                result = comicController.pause();
-                break;
-            case "setReadSpeed":
-                result = comicController.setReadSpeed(args[0]);
-                break;
-            case "getStatus":
-                result = comicController.getStatus ? comicController.getStatus() :
-                    { running: comicController.running, isPaused: comicController.isPaused };
-                break;
-            case "getLogs":
-                // 新增: 获取日志功能
-                if (logger && logger.getLogArchive) {
-                    result = { logArchive: logger.getLogArchive() };
-                } else {
-                    result = { error: "日志系统不可用" };
-                }
-                break;
-            default:
-                logger.warn("未知的控制器请求: " + action);
-                result = { error: "未知请求" };
-        }
-
-        // 将结果发送回rhino.js
-        events.broadcast.emit("controller_response", action, result);
-    } catch (e) {
-        logger.error("处理控制器请求出错", e);
-        events.broadcast.emit("controller_response", action, { error: e.toString() });
-    }
-});
 
 //! 6. 使用 AutoJS 兼容的错误处理，当发生 未被try catch 的异常时，会触发这个事件
 try {
@@ -114,52 +60,6 @@ try {
     logger.warn("设置全局错误处理失败", e);
 }
 
-
-//! 5. 监听脚本退出事件，关闭悬浮窗
-events.broadcast.on(SCRIPT_EXIT_EVENT, function (completeExit) {
-    logger.info("收到退出事件，准备处理悬浮窗，完全退出: " + (completeExit ? "是" : "否"));
-
-    // 如果是完全退出，或者悬浮窗不是由main.js创建的，则关闭悬浮窗
-    if (completeExit || !floatyCreatedByMain) {
-        ui.run(function () {
-            if (floatyWindow) {
-                try {
-                    floatyWindow.close();
-                    logger.info("通过事件关闭了悬浮窗");
-                } catch (e) {
-                    logger.error("通过事件关闭悬浮窗出错", e);
-                }
-                floatyWindow = null;
-            }
-        });
-
-        // 如果是完全退出，尝试结束当前脚本
-        if (completeExit) {
-            setTimeout(function () {
-                try {
-                    ui.finish();
-                    exit();
-                } catch (e) {
-                    logger.error("尝试退出脚本时出错: ", e);
-                }
-            }, 500);
-        }
-    } else {
-        // 如果悬浮窗是由main.js创建的，且不是完全退出，则保留悬浮窗
-        logger.info("悬浮窗由main.js创建，保留悬浮窗");
-        // 可以选择更新悬浮窗状态，例如禁用某些按钮
-        if (floatyWindow && floatyWindow.pauseButton) {
-            ui.run(function () {
-                try {
-                    floatyWindow.pauseButton.setText("暂停");
-                    // 可以在这里更新其他UI元素
-                } catch (e) {
-                    logger.error("更新悬浮窗状态出错: ", e);
-                }
-            });
-        }
-    }
-});
 
 //! 7. 开始创建ui 和执行ui的事件
 $ui.layout(
@@ -292,16 +192,18 @@ $ui.startButton.on("click", () => {
     }
 
     // 无障碍服务正常，继续执行
-    appConfig.update(); // 更新配置文件
+    appConfig.update({
+        activationKey: appConfig.activationKey,
+        autoScroll: appConfig.autoScroll,
+        autoNextChapter: appConfig.autoNextChapter,
+        scrollSpeed: $ui.scrollSpeed.getSelectedItemPosition()
+    }); // 更新配置文件
     logger.info("配置已保存：" + JSON.stringify({
         activationKey: appConfig.activationKey,
         autoScroll: appConfig.autoScroll,
         autoNextChapter: appConfig.autoNextChapter,
         scrollSpeed: $ui.scrollSpeed.getSelectedItemPosition()
     }));
-
-    // 发送广播通知配置已更新
-    events.broadcast.emit("config_updated", appConfig);
 
 
     // 判断是否需要创建悬浮窗
@@ -314,7 +216,7 @@ $ui.startButton.on("click", () => {
 
     // 启动Rhino脚本执行引擎
     logger.info("开始运行Rhino脚本...");
-    engines.execScriptFile("./rhino.js", {
+    rhinoEngine = engines.execScriptFile("./rhino.js", {
         arguments: {
             action: "start",
             config: appConfig
@@ -396,7 +298,6 @@ function toggleControlPanel() {
             isFloatyExpanded = false;
             // 恢复原始位置
             floatyWindow.setPosition(device.width - 100, device.height / 2);
-            logger.info("面板已收起");
         } else {
             // 展开面板
             expandPanel.attr("visibility", "visible");
@@ -405,7 +306,7 @@ function toggleControlPanel() {
             let currentX = floatyWindow.getX();
             let newX = Math.min(currentX, device.width - 450);
             floatyWindow.setPosition(newX, floatyWindow.getY());
-            logger.info("面板已展开");
+            // logger.info("面板已展开");
         }
 
         // 为所有按钮设置点击事件
@@ -413,23 +314,48 @@ function toggleControlPanel() {
         floatyWindow.stopButton.setOnClickListener(function (view) {
             toast("停止阅读");
             try {
-                comicController.stop();
+                // 更新配置，设置running为false
+                appConfig.update({
+                    readComic: {
+                        running: false,
+                        shouldExit: false,
+                        isPaused: false
+                    }
+                });
+                
+                logger.info("已发送停止命令");
                 toggleControlPanel(); // 收起控制面板
             } catch (e) {
                 logger.error("调用停止方法出错: ", e);
+                toast("停止操作失败: " + e.message);
             }
         });
 
         // 暂停按钮
         floatyWindow.pauseButton.setOnClickListener(function (view) {
             try {
-                comicController.pause();
-                let isPaused = comicController.isPaused;
+                // 获取当前是否暂停的状态
+                let isPaused = appConfig.readComic.isPaused;
+                
+                // 切换暂停状态
+                isPaused = !isPaused;
+                
+                // 更新配置
+                appConfig.update({
+                    readComic: {
+                        isPaused: isPaused,
+                        running: true,
+                        shouldExit: false
+                    }
+                });
+                
+                // 更新UI
                 floatyWindow.pauseButton.setText(isPaused ? "继续" : "暂停");
                 toast(isPaused ? "已暂停" : "已继续");
+                logger.info(isPaused ? "已暂停阅读" : "已继续阅读");
             } catch (e) {
                 logger.error("调用暂停方法出错: ", e);
-                toast("暂停操作失败");
+                toast("暂停操作失败: " + e.message);
             }
         });
 
@@ -442,32 +368,55 @@ function toggleControlPanel() {
 
         // 退出按钮
         floatyWindow.exitButton.setOnClickListener(function (view) {
-            toast("正在退出...");
-            try {
-                // 停止控制器
-                if (comicController) {
-                    comicController.stop();
+            dialogs.confirm("确认退出", "确定要退出脚本吗？", function(confirmed) {
+                if (confirmed) {
+                    toast("正在退出...");
+                    try {
+                        // 更新配置，设置shouldExit为true
+                        appConfig.update({
+                            readComic: {
+                                running: false,
+                                shouldExit: true,
+                                isPaused: false
+                            }
+                        });
+                        
+                        // 发送退出控制事件
+                        events.broadcast.emit("comic_control", {
+                            action: "exit"
+                        });
+        
+                        // 关闭悬浮窗
+                        if (floatyWindow) {
+                            floatyWindow.close();
+                            floatyWindow = null;
+                        }
+        
+                        // 停止Rhino脚本执行引擎
+                        if (rhinoEngine) {
+                            try {
+                                rhinoEngine.forceStop();
+                                rhinoEngine = null;
+                                logger.info("已强制停止Rhino引擎");
+                            } catch (e) {
+                                console.log("强制停止Rhino引擎失败: ", e);
+                                logger.error("强制停止Rhino引擎失败: ", e);
+                            }
+                        }
+        
+                        // 退出脚本
+                        setTimeout(function () {
+                            ui.finish();
+                            exit();
+                        }, 500);
+                    } catch (e) {
+                        logger.error("退出操作出错: ", e);
+                        toast("退出操作失败: " + e.message);
+                        ui.finish();
+                        exit();
+                    }
                 }
-
-                // 发送退出事件
-                events.broadcast.emit(SCRIPT_EXIT_EVENT, true);
-
-                // 关闭悬浮窗
-                if (floatyWindow) {
-                    floatyWindow.close();
-                    floatyWindow = null;
-                }
-
-                // 退出脚本
-                setTimeout(function () {
-                    ui.finish();
-                    exit();
-                }, 500);
-            } catch (e) {
-                logger.error("退出操作出错: ", e);
-                ui.finish();
-                exit();
-            }
+            });
         });
     } catch (e) {
         logger.error("切换控制面板状态出错: " + e);
@@ -663,9 +612,9 @@ function showSettingsDialog() {
                 }
 
                 // 更新控制器设置
-                if (comicController && comicController.running) {
-                    comicController.setReadSpeed(newSpeed);
-                }
+                // if (comicController && comicController.running) {
+                //     comicController.setReadSpeed(newSpeed);
+                // }
 
 
                 toast("设置已保存");

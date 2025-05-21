@@ -100,9 +100,10 @@ function saveConfig(configObj) {
     try {
         var configFile = files.path("./config.json");
         files.write(configFile, JSON.stringify(configObj, null, 4));
-
+        appConfig = configObj;
         // 广播配置更改事件
         if (typeof events !== 'undefined' && events.broadcast) {
+            console.log("config_updated 将要触发更新配置文件" );
             // 注意：这里传递的是配置对象本身，而不是文件路径
             events.broadcast.emit("config_updated", configObj);
         }
@@ -115,20 +116,29 @@ function saveConfig(configObj) {
     }
 }
 
-//! 4. 更新配置
-function updateConfig(newConfig) {
-    try {
-        // 合并配置
-        for (let key in newConfig) {
-            if (newConfig.hasOwnProperty(key)) {
-                appConfig[key] = newConfig[key];
+function deepMerge(target, source) {
+    for (let key in source) {
+        if (source.hasOwnProperty(key)) {
+            if (source[key] instanceof Object && key in target && target[key] instanceof Object) {
+                // 如果属性是对象且目标也有该属性，递归合并
+                deepMerge(target[key], source[key]);
+            } else {
+                // 否则直接赋值
+                target[key] = source[key];
             }
         }
+    }
+    return target;
+}
 
-        // 保存到文件
-        saveConfig(appConfig);
 
-        console.info("配置已更新并保存: " + JSON.stringify(appConfig));
+//! 4. 更新配置
+function updateConfig(newConfig) {
+    console.log("start updateConfig",newConfig);
+    try {
+        var targetConfig = deepMerge(appConfig, newConfig);
+        console.log("targetConfig",targetConfig);
+        saveConfig(targetConfig);
         return true;
     } catch (e) {
         console.error("更新配置失败: " + e);

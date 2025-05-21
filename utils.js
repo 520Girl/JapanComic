@@ -345,17 +345,17 @@ utils.ensureFloatyPermission = function (autoRequest) {
  * 尝试解决无障碍服务"已启用但未运行"问题
  * @returns {boolean} 是否成功修复
  */
-utils.fixAccessibilityNotRunning = function() {
+utils.fixAccessibilityNotRunning = function () {
     try {
         console.log("尝试修复无障碍服务未运行问题...");
-        
+
         // 方法1: 尝试重启无障碍服务
         toast("尝试方法1: 重启无障碍服务");
         auto.service = false;
         sleep(1000);
         auto.service = true;
         sleep(2000);
-        
+
         // 检查是否修复
         try {
             let testResult = id("test_nonexistent_id").exists();
@@ -365,17 +365,17 @@ utils.fixAccessibilityNotRunning = function() {
         } catch (e) {
             if (e.toString().indexOf("无障碍服务已启用但并未运行") != -1) {
                 console.log("方法1失败，尝试方法2");
-                
+
                 // 方法2: 尝试使用无障碍设置页面
                 toast("尝试方法2: 打开无障碍设置");
                 app.startActivity({
                     action: "android.settings.ACCESSIBILITY_SETTINGS"
                 });
                 toast("请在设置中找到Auto.js，先关闭再重新打开无障碍服务");
-                
+
                 // 等待用户操作
                 sleep(5000);
-                
+
                 return false;
             }
         }
@@ -384,14 +384,14 @@ utils.fixAccessibilityNotRunning = function() {
         toast("修复无障碍服务出错: " + e.message);
         return false;
     }
-    
+
     return false;
 };
 
 /**
  * 返回到主屏幕
  */
-utils.returnHome = function() {
+utils.returnHome = function () {
     try {
         // 尝试使用Intent方式
         let intent = new android.content.Intent(android.content.Intent.ACTION_MAIN);
@@ -517,7 +517,7 @@ try {
 
 
 // 执行内存回收
-utils.performGC = function() {
+utils.performGC = function () {
     runtime.gc();
     logger.info("执行内存回收");
     // toast("执行内存回收");
