@@ -14,10 +14,11 @@ var defaultConfig = {
     autoNextChapter: true,      // 自动进入下一章
     debugMode: false,           // 调试模式
     scrollSpeedIndex: "1",        // 速度索引
+    //duration 表示等待时间，comicLoading表示漫画加载时间，appStart表示应用启动时间, interval 表示检测数据更改的评率
     scrollParams: { // 这个控制的整个自动化流程的速度
-        "0": { duration: 3200, interval: 100000 }, // 慢速
-        "1": { duration: 1600, interval: 4000 }, // 中速
-        "2": { duration: 800, interval: 2000 }   // 快速
+        "0": { duration: 3200, comicLoading: 100000,appStart: 6000, interval: 1500 }, // 慢速 
+        "1": { duration: 1000, comicLoading: 50000,appStart: 4000, interval: 800 }, // 中速
+        "2": { duration: 500, comicLoading: 5000,appStart: 2000, interval: 200 }   // 快速
     },
     // UI设置
     floatyOpacity: 0.8,         // 悬浮窗透明度
@@ -101,12 +102,6 @@ function saveConfig(configObj) {
         var configFile = files.path("./config.json");
         files.write(configFile, JSON.stringify(configObj, null, 4));
         appConfig = configObj;
-        // 广播配置更改事件
-        if (typeof events !== 'undefined' && events.broadcast) {
-            console.log("config_updated 将要触发更新配置文件" );
-            // 注意：这里传递的是配置对象本身，而不是文件路径
-            events.broadcast.emit("config_updated", configObj);
-        }
 
         logger.info("保存配置文件成功", configFile);
         return true;
@@ -134,10 +129,8 @@ function deepMerge(target, source) {
 
 //! 4. 更新配置
 function updateConfig(newConfig) {
-    console.log("start updateConfig",newConfig);
     try {
         var targetConfig = deepMerge(appConfig, newConfig);
-        console.log("targetConfig",targetConfig);
         saveConfig(targetConfig);
         return true;
     } catch (e) {

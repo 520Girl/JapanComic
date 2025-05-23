@@ -17,54 +17,6 @@ utils.configInstances = [];
  */
 utils.floatyWindows = [];
 
-/**
- * 监听配置更新事件
- * 当配置更新时，自动更新所有已注册的日志实例和配置实例
- */
-utils.setupConfigListener = function () {
-    if (typeof events !== 'undefined' && events.broadcast) {
-        events.broadcast.on("config_updated", function (updatedConfig) {
-            console.log("收到配置更新广播");
-
-            // 更新所有已注册的日志实例
-            for (var moduleName in utils.loggers) {
-                var logger = utils.loggers[moduleName];
-                if (logger && logger.options) {
-                    logger.options.logToFile = updatedConfig.logging.logToFile;
-                    logger.options.debugMode = updatedConfig.debugMode;
-                    if (logger.setLogLevel) {
-                        logger.setLogLevel(updatedConfig.logging.logLevel);
-                    }
-                    console.log("已更新 " + moduleName + " 模块的日志配置");
-                }
-            }
-
-            // 更新所有已注册的配置实例
-            for (var i = 0; i < utils.configInstances.length; i++) {
-                var configRef = utils.configInstances[i];
-                if (configRef && typeof configRef === 'object') {
-                    // 更新配置对象的所有属性
-                    for (var key in updatedConfig) {
-                        if (updatedConfig.hasOwnProperty(key)) {
-                            configRef[key] = updatedConfig[key];
-                        }
-                    }
-                    console.log("已更新配置实例 #" + i);
-                }
-            }
-        });
-        console.log("已设置配置更新监听器");
-    } else {
-        console.warn("事件广播系统不可用，无法设置配置监听器");
-    }
-};
-
-// 尝试设置配置监听器
-try {
-    utils.setupConfigListener();
-} catch (e) {
-    console.error("设置配置监听器失败: " + e);
-}
 
 /**
  * 注册配置实例以便在配置更新时自动更新
@@ -469,51 +421,6 @@ utils.closeAllFloatyWindows = function () {
     utils.floatyWindows = [];
     console.log("所有悬浮窗已关闭");
 };
-
-/**
- * 设置应用退出监听器
- * 确保在应用退出时关闭所有悬浮窗
- */
-utils.setupExitListener = function () {
-    // 使用事件系统监听退出事件
-    if (typeof events !== 'undefined') {
-        // 监听脚本退出事件
-        events.on('exit', function () {
-            console.log("检测到脚本退出事件，正在清理资源");
-            utils.closeAllFloatyWindows();
-        });
-
-        // 监听自定义退出事件
-        if (events.broadcast) {
-            events.broadcast.on("script_exit", function () {
-                console.log("检测到广播退出事件，正在清理资源");
-                utils.closeAllFloatyWindows();
-            });
-        }
-
-        console.log("已设置退出事件监听器");
-    }
-
-    // 设置进程退出钩子（如果可用）
-    try {
-        if (java.lang.Runtime && java.lang.Runtime.getRuntime()) {
-            java.lang.Runtime.getRuntime().addShutdownHook(new java.lang.Thread(function () {
-                console.log("检测到JVM关闭钩子，正在清理资源");
-                utils.closeAllFloatyWindows();
-            }));
-            console.log("已设置JVM关闭钩子");
-        }
-    } catch (e) {
-        console.error("设置JVM关闭钩子失败: " + e);
-    }
-};
-
-// 尝试设置退出监听器
-try {
-    utils.setupExitListener();
-} catch (e) {
-    console.error("设置退出监听器失败: " + e);
-}
 
 
 // 执行内存回收

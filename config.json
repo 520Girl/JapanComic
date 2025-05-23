@@ -5,9 +5,9 @@
     "debugMode": true,
     "scrollSpeedIndex": "1",
     "scrollParams": {
-        "0": { "duration": 3200, "interval": 100000 }, 
-        "1": { "duration": 1600, "interval": 4000 }, 
-        "2": { "duration": 800, "interval": 2000 }  
+        "0": { "duration": 3200, "comicLoading": 100000, "appStart": 6000, "interval": 1500 }, 
+        "1": { "duration": 1000, "comicLoading": 50000, "appStart": 4000, "interval": 800 }, 
+        "2": { "duration": 800, "comicLoading": 5000, "appStart": 2000, "interval": 200 }  
     },
     "floatyOpacity": 0.8,
     "floatyTheme": "#2196F3",

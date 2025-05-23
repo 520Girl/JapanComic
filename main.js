@@ -104,7 +104,7 @@ $ui.layout(
                                     <checkbox id="autoScroll" text="自动滚动" checked={appConfig.autoScroll} />
                                     <checkbox id="autoNextChapter" text="自动下一章" checked={appConfig.autoNextChapter} />
                                     <text text="流程速度" textSize="16sp" />
-                                    <spinner id="scrollSpeed" entries="慢速|中速|快速" selected={appConfig.scrollParams[appConfig.scrollSpeedIndex]} />
+                                    <spinner id="scrollSpeed" entries="慢速|中速|快速"/>
                                 </vertical>
                             </card>
 
@@ -133,6 +133,7 @@ $ui.layout(
 );
 
 //todo 7.1. 设置标签页切换
+$ui.scrollSpeed.setSelection(appConfig.scrollSpeedIndex);
 $ui.configTab.on("click", () => {
     $ui.configPage.attr("visibility", "visible");
     $ui.historyPage.attr("visibility", "gone");
@@ -156,55 +157,76 @@ $ui.startButton.on("click", () => {
     appConfig.activationKey = $ui.activationCode.getText().toString();
     appConfig.autoScroll = $ui.autoScroll.isChecked();
     appConfig.autoNextChapter = $ui.autoNextChapter.isChecked();
-    appConfig.scrollParams[appConfig.scrollSpeedIndex] = $ui.scrollSpeed.getSelectedItemPosition();
+    // appConfig.scrollParams[appConfig.scrollSpeedIndex] = $ui.scrollSpeed.getSelectedItemPosition();
 
-    // 先检查无障碍服务是否正常
-    let accessibilityOk = false;
+    // 检查无障碍服务
     try {
-        // 执行一个无障碍操作测试服务是否真正运行
-        let testResult = id("test_nonexistent_id").exists();
-        accessibilityOk = true;
-    } catch (e) {
-        if (e.toString().indexOf("无障碍服务已启用但并未运行") != -1) {
-            dialogs.build({
-                title: "无障碍服务问题",
-                content: "检测到无障碍服务已启用但未正常运行。\n需要先解决这个问题才能继续。",
-                positive: "解决问题",
-                negative: "取消"
-            }).on("positive", () => {
-                engines.execScriptFile("./checkAccessibility.js");
-            }).show();
-            return;
-        } else if (!auto.service) {
+        // 尝试检查和修复无障碍服务
+        if (!auto.service) {
             dialogs.build({
                 title: "需要无障碍服务",
                 content: "此功能需要启用无障碍服务。",
                 positive: "去启用",
                 negative: "取消"
             }).on("positive", () => {
+                // 使用 auto.waitFor() 等待用户手动启用
                 auto.waitFor();
             }).show();
             return;
-        } else {
+        }
+
+        // 测试无障碍服务是否正常运行
+        try {
+            let testResult = id("test_nonexistent_id").exists();
+        } catch (e) {
+            if (e.toString().indexOf("无障碍服务已启用但并未运行") != -1) {
+                dialogs.build({
+                    title: "无障碍服务问题",
+                    content: "检测到无障碍服务已启用但未正常运行。\n需要先解决这个问题才能继续。",
+                    positive: "修复问题",
+                    negative: "取消"
+                }).on("positive", () => {
+                    // 使用 utils 中的修复方法
+                    if (utils.fixAccessibilityNotRunning()) {
+                        toast("无障碍服务已修复");
+                        // 继续执行后续操作
+                        continueWithAccessibilityService();
+                    } else {
+                        toast("无法自动修复无障碍服务，请手动重启无障碍服务");
+                    }
+                }).show();
+                return;
+            }
             toast("无障碍服务检查时出现未知错误: " + e.message);
             return;
         }
-    }
 
-    // 无障碍服务正常，继续执行
+        // 无障碍服务正常，继续执行
+        continueWithAccessibilityService();
+
+    } catch (e) {
+        logger.error("检查无障碍服务时出错", e);
+        toast("检查无障碍服务时出错: " + e.message);
+        return;
+    }
+});
+
+// 抽取后续操作为单独的函数
+function continueWithAccessibilityService() {
+    // 更新配置
     appConfig.update({
         activationKey: appConfig.activationKey,
         autoScroll: appConfig.autoScroll,
         autoNextChapter: appConfig.autoNextChapter,
         scrollSpeed: $ui.scrollSpeed.getSelectedItemPosition()
-    }); // 更新配置文件
+    });
+
     logger.info("配置已保存：" + JSON.stringify({
         activationKey: appConfig.activationKey,
         autoScroll: appConfig.autoScroll,
         autoNextChapter: appConfig.autoNextChapter,
         scrollSpeed: $ui.scrollSpeed.getSelectedItemPosition()
     }));
-
 
     // 判断是否需要创建悬浮窗
     if (!floatyWindow) {
@@ -225,7 +247,7 @@ $ui.startButton.on("click", () => {
 
     // 显示提示信息
     toast("已启动服务");
-});
+}
 
 //! 8. 创建悬浮
 function createFloatyWindow() {
@@ -274,8 +296,7 @@ function createFloatyWindow() {
 
         return floatyWindow;
     } catch (e) {
-        console.error("创建悬浮窗出错: " + e);
-        toast("创建悬浮窗出错: " + e);
+        logger.error("创建悬浮窗出错: " + e);
         return null;
     }
 }
@@ -318,13 +339,12 @@ function toggleControlPanel() {
                 appConfig.update({
                     readComic: {
                         running: false,
-                        shouldExit: false,
-                        isPaused: false
+                        shouldExit: false
                     }
                 });
-                
+
                 logger.info("已发送停止命令");
-                toggleControlPanel(); // 收起控制面板
+                toggleControlPanel();
             } catch (e) {
                 logger.error("调用停止方法出错: ", e);
                 toast("停止操作失败: " + e.message);
@@ -336,39 +356,41 @@ function toggleControlPanel() {
             try {
                 // 获取当前是否暂停的状态
                 let isPaused = appConfig.readComic.isPaused;
-                
+
                 // 切换暂停状态
                 isPaused = !isPaused;
-                
+                console.log("切换暂停状态",isPaused);
+
                 // 更新配置
                 appConfig.update({
                     readComic: {
                         isPaused: isPaused,
-                        running: true,
                         shouldExit: false
                     }
                 });
-                
+
                 // 更新UI
                 floatyWindow.pauseButton.setText(isPaused ? "继续" : "暂停");
-                toast(isPaused ? "已暂停" : "已继续");
+                // toast(isPaused ? "已暂停" : "已继续");
                 logger.info(isPaused ? "已暂停阅读" : "已继续阅读");
             } catch (e) {
                 logger.error("调用暂停方法出错: ", e);
-                toast("暂停操作失败: " + e.message);
             }
         });
 
         // 设置按钮
         floatyWindow.settingsButton.setOnClickListener(function (view) {
             toast("打开设置");
-            toggleControlPanel(); // 收起控制面板
+            toggleControlPanel();
             showSettingsDialog();
         });
 
         // 退出按钮
         floatyWindow.exitButton.setOnClickListener(function (view) {
-            dialogs.confirm("确认退出", "确定要退出脚本吗？", function(confirmed) {
+            // 收起控制面板
+            toggleControlPanel();
+
+            dialogs.confirm("确认退出", "确定要退出脚本吗？", function (confirmed) {
                 if (confirmed) {
                     toast("正在退出...");
                     try {
@@ -377,33 +399,22 @@ function toggleControlPanel() {
                             readComic: {
                                 running: false,
                                 shouldExit: true,
-                                isPaused: false
+                                isPaused: true
                             }
                         });
-                        
-                        // 发送退出控制事件
-                        events.broadcast.emit("comic_control", {
-                            action: "exit"
-                        });
-        
+
+
                         // 关闭悬浮窗
                         if (floatyWindow) {
                             floatyWindow.close();
                             floatyWindow = null;
                         }
-        
+
                         // 停止Rhino脚本执行引擎
                         if (rhinoEngine) {
-                            try {
-                                rhinoEngine.forceStop();
-                                rhinoEngine = null;
-                                logger.info("已强制停止Rhino引擎");
-                            } catch (e) {
-                                console.log("强制停止Rhino引擎失败: ", e);
-                                logger.error("强制停止Rhino引擎失败: ", e);
-                            }
+                            engines.stopAll(); 
                         }
-        
+
                         // 退出脚本
                         setTimeout(function () {
                             ui.finish();
@@ -705,11 +716,6 @@ ui.emitter.on('exit', function () {
         engines.stopAll();
     } catch (e) {
         logger.error("停止所有脚本失败", e);
-    }
-
-    // 发送广播通知其他脚本退出
-    if (events && events.broadcast) {
-        events.broadcast.emit("script_exit");
     }
 
     logger.info("资源清理完成");
