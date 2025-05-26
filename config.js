@@ -38,6 +38,26 @@ var defaultConfig = {
     firstRun: true,             // 首次运行标志
     activationKey: "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiIsImFkbWluIjp0cnVlfQ.HyGqUXiIrB2gcSs7o-7ejNFwF2hmgSEMQ-KVMMliltwXkYOh_Mib0GX2kSJZUdqyPrtpaMEIhEY6t24x7MJDNQ",          // 激活码
 
+    // 权限设置
+    permissions: {
+        accessibility: true,    // 无障碍服务
+        floatingWindow: true,   // 悬浮窗
+        screenCapture: true,    // 截图权限
+        storage: true          // 存储权限
+    },
+    // 阅读历史设置
+    readHistory: {
+        enabled: true,         // 是否启用阅读历史
+        maxItems: 100,         // 最大保存历史记录数
+        syncWithCloud: false,  // 是否与云端同步
+        autoClean: true       // 自动清理超过限制的历史记录
+    },
+    // 用户信息
+    userInfo: {
+        userId: "",           // 用户ID
+        username: "",         // 用户名
+        isLoggedIn: false    // 登录状态
+    },
 
     // 日志系统设置
     logging: {

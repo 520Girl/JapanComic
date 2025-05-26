@@ -17,6 +17,9 @@ utils.configInstances = [];
  */
 utils.floatyWindows = [];
 
+// 添加截图权限状态标记
+utils.captureRequestInProgress = false;
+utils.hasCapturePermission = false;
 
 /**
  * 注册配置实例以便在配置更新时自动更新
@@ -501,11 +504,17 @@ utils.checkImageContainsColor = function (element, targetColor, threshold) {
  * @returns {boolean} 是否有截屏权限
  */
 utils.checkCapturePermission = function () {
+    // 如果已经确认有权限，直接返回true
+    if (utils.hasCapturePermission) {
+        return true;
+    }
+
     try {
         // 尝试进行一次截图测试
         var img = captureScreen();
         if (img) {
             img.recycle();
+            utils.hasCapturePermission = true;
             return true;
         }
         return false;
@@ -516,39 +525,48 @@ utils.checkCapturePermission = function () {
 
 /**
  * 请求截屏权限
- * @returns {boolean} 是否成功获取权限
+ * @returns {Promise} 返回一个Promise，resolve为boolean表示是否成功获取权限
  */
 utils.requestCapturePermission = function () {
-    try {
-        // 使用Auto.js的标准方法请求截屏权限
-        if (typeof requestScreenCapture === 'function') {
-            // 请求截屏权限
-            if (!requestScreenCapture()) {
-                toast("请求截屏权限失败");
-                return false;
-            }
-            return true;
-        } else {
-            // 如果requestScreenCapture不可用，尝试使用备用方法
-            try {
-                // 使用orientation作为参数
-                if (!requestScreenCapture(true)) {
-                    if (!requestScreenCapture(false)) {
-                        toast("请求截屏权限失败");
-                        return false;
-                    }
-                }
-                return true;
-            } catch (e) {
-                console.error("请求截屏权限出错: " + e);
-                return false;
-            }
+    return new Promise((resolve, reject) => {
+        // 如果已经有权限，直接返回true
+        if (utils.hasCapturePermission) {
+            resolve(true);
+            return;
         }
-    } catch (e) {
-        console.error("请求截屏权限失败: " + e);
-        toast("请求截屏权限失败，请手动授予权限");
-        return false;
-    }
+
+        // 如果正在请求权限，返回false
+        if (utils.captureRequestInProgress) {
+            console.log("截图权限正在请求中...");
+            resolve(false);
+            return;
+        }
+
+        try {
+            utils.captureRequestInProgress = true;
+            // 使用异步方法请求权限
+            requestScreenCaptureAsync()
+                .then(result => {
+                    if (result) {
+                        utils.hasCapturePermission = true;
+                        console.log("成功获取截图权限");
+                    } else {
+                        console.log("用户拒绝了截图权限");
+                    }
+                    utils.captureRequestInProgress = false;
+                    resolve(result);
+                })
+                .catch(e => {
+                    utils.captureRequestInProgress = false;
+                    console.error("请求截图权限失败: " + e);
+                    reject(e);
+                });
+        } catch (e) {
+            utils.captureRequestInProgress = false;
+            console.error("发起权限请求失败: " + e);
+            reject(e);
+        }
+    });
 };
 
 /**
@@ -556,6 +574,17 @@ utils.requestCapturePermission = function () {
  * @returns {boolean} 是否有截屏权限
  */
 utils.ensureCapturePermission = function () {
+    // 如果已经有权限，直接返回true
+    if (utils.hasCapturePermission) {
+        return true;
+    }
+
+    // 如果正在请求权限，返回false
+    if (utils.captureRequestInProgress) {
+        return false;
+    }
+
+    // 检查是否已有权限
     if (utils.checkCapturePermission()) {
         return true;
     }

@@ -27,6 +27,7 @@ var config = require("./config.js");
 var utils = require("./utils.js");
 appConfig = config.appConfig;
 appConfig.update = config.updateConfig;
+appConfig.resetConfig = config.resetConfig;
 
 //! 2. 初始化日志系统
 logger = utils.initLogger("main", appConfig);
@@ -87,7 +88,7 @@ $ui.layout(
                             <card w="*" h="80" margin="8" cardCornerRadius="8" cardElevation="2">
                                 <horizontal padding="16" gravity="center_vertical">
                                     <img src="@drawable/ic_autorenew_black_48dp" w="40" h="40" tint="#FF5722" />
-                                    <text text="有机会一起睡觉" textSize="18sp" textColor="#333333" marginLeft="16" />
+                                    <text text="邮箱:ugly8girl@gmail.com" textSize="10sp" textColor="#333333" marginLeft="16" />
                                 </horizontal>
                             </card>
 
@@ -105,6 +106,16 @@ $ui.layout(
                                     <checkbox id="autoNextChapter" text="自动下一章" checked={appConfig.autoNextChapter} />
                                     <text text="流程速度" textSize="16sp" />
                                     <spinner id="scrollSpeed" entries="慢速|中速|快速"/>
+                                    
+                                    <text text="权限设置" textSize="16sp" marginTop="16"/>
+                                    <checkbox id="accessibilityPermission" text="无障碍服务" checked={appConfig.permissions.accessibility} />
+                                    <checkbox id="floatingWindowPermission" text="悬浮窗" checked={appConfig.permissions.floatingWindow} />
+                                    <checkbox id="screenCapturePermission" text="截图权限" checked={appConfig.permissions.screenCapture} />
+                                    <checkbox id="storagePermission" text="存储权限" checked={appConfig.permissions.storage} />
+                                    
+                                    <text text="阅读历史" textSize="16sp" marginTop="16"/>
+                                    <checkbox id="enableHistory" text="启用阅读历史" checked={appConfig.readHistory.enabled} />
+                                    <checkbox id="autoCleanHistory" text="自动清理历史记录" checked={appConfig.readHistory.autoClean} />
                                 </vertical>
                             </card>
 
@@ -157,63 +168,263 @@ $ui.startButton.on("click", () => {
     appConfig.activationKey = $ui.activationCode.getText().toString();
     appConfig.autoScroll = $ui.autoScroll.isChecked();
     appConfig.autoNextChapter = $ui.autoNextChapter.isChecked();
-    // appConfig.scrollParams[appConfig.scrollSpeedIndex] = $ui.scrollSpeed.getSelectedItemPosition();
+    
+    // 保存权限设置
+    appConfig.permissions.accessibility = $ui.accessibilityPermission.isChecked();
+    appConfig.permissions.floatingWindow = $ui.floatingWindowPermission.isChecked();
+    appConfig.permissions.screenCapture = $ui.screenCapturePermission.isChecked();
+    appConfig.permissions.storage = $ui.storagePermission.isChecked();
+    
+    // 保存阅读历史设置
+    appConfig.readHistory.enabled = $ui.enableHistory.isChecked();
+    appConfig.readHistory.autoClean = $ui.autoCleanHistory.isChecked();
 
+    // 检查必要的权限
+    let missingPermissions = [];
+    
     // 检查无障碍服务
-    try {
-        // 尝试检查和修复无障碍服务
-        if (!auto.service) {
-            dialogs.build({
-                title: "需要无障碍服务",
-                content: "此功能需要启用无障碍服务。",
-                positive: "去启用",
-                negative: "取消"
-            }).on("positive", () => {
-                // 使用 auto.waitFor() 等待用户手动启用
+    if (appConfig.permissions.accessibility && !auto.service) {
+        missingPermissions.push("无障碍服务");
+    }
+    
+    // 检查悬浮窗权限
+    if (appConfig.permissions.floatingWindow && !utils.checkFloatyPermission()) {
+        missingPermissions.push("悬浮窗");
+    }
+    
+    // 检查存储权限
+    if (appConfig.permissions.storage && !utils.hasStoragePermission()) {
+        missingPermissions.push("存储");
+    }
+
+    // 如果有缺失的权限，显示对话框
+    if (missingPermissions.length > 0) {
+        dialogs.build({
+            title: "需要以下权限",
+            content: "请授予以下权限以继续运行：\n" + missingPermissions.join("\n"),
+            positive: "去授权",
+            negative: "取消"
+        }).on("positive", () => {
+            // 请求权限
+            if (missingPermissions.includes("无障碍服务")) {
                 auto.waitFor();
-            }).show();
-            return;
-        }
-
-        // 测试无障碍服务是否正常运行
-        try {
-            let testResult = id("test_nonexistent_id").exists();
-        } catch (e) {
-            if (e.toString().indexOf("无障碍服务已启用但并未运行") != -1) {
-                dialogs.build({
-                    title: "无障碍服务问题",
-                    content: "检测到无障碍服务已启用但未正常运行。\n需要先解决这个问题才能继续。",
-                    positive: "修复问题",
-                    negative: "取消"
-                }).on("positive", () => {
-                    // 使用 utils 中的修复方法
-                    if (utils.fixAccessibilityNotRunning()) {
-                        toast("无障碍服务已修复");
-                        // 继续执行后续操作
-                        continueWithAccessibilityService();
-                    } else {
-                        toast("无法自动修复无障碍服务，请手动重启无障碍服务");
-                    }
-                }).show();
-                return;
             }
-            toast("无障碍服务检查时出现未知错误: " + e.message);
-            return;
-        }
-
-        // 无障碍服务正常，继续执行
-        continueWithAccessibilityService();
-
-    } catch (e) {
-        logger.error("检查无障碍服务时出错", e);
-        toast("检查无障碍服务时出错: " + e.message);
+            if (missingPermissions.includes("悬浮窗")) {
+                utils.requestFloatyPermission();
+            }
+            if (missingPermissions.includes("存储")) {
+                utils.requestPermissions(["android.permission.WRITE_EXTERNAL_STORAGE"]);
+            }
+        }).show();
         return;
     }
+
+    // 如果启用了截图权限，在启动前请求并等待确认
+    if (appConfig.permissions.screenCapture) {
+        // 如果已经有权限，直接继续
+        if (utils.hasCapturePermission) {
+            saveConfigAndContinue();
+            return;
+        }
+
+        // 如果正在请求权限，提示用户等待
+        if (utils.captureRequestInProgress) {
+            toast("正在请求截图权限，请稍候...");
+            return;
+        }
+
+        dialogs.build({
+            title: "需要截图权限",
+            content: "程序需要截图权限来检测页面状态，是否授予权限？",
+            positive: "授予权限",
+            negative: "取消"
+        }).on("positive", () => {
+            // 请求截图权限
+            utils.requestCapturePermission()
+                .then(result => {
+                    if (result) {
+                        // 权限请求成功，继续执行
+                        saveConfigAndContinue();
+                    } else {
+                        toast("未获得截图权限，无法继续运行");
+                        $ui.screenCapturePermission.checked = false;
+                        appConfig.permissions.screenCapture = false;
+                    }
+                })
+                .catch(e => {
+                    console.error("请求截图权限时出错: " + e);
+                    toast("请求截图权限失败，请重试");
+                    $ui.screenCapturePermission.checked = false;
+                    appConfig.permissions.screenCapture = false;
+                });
+        }).on("negative", () => {
+            toast("未授予截图权限，无法继续运行");
+            $ui.screenCapturePermission.checked = false;
+            appConfig.permissions.screenCapture = false;
+        }).show();
+    } else {
+        // 如果不需要截图权限，直接继续
+        saveConfigAndContinue();
+    }
 });
+
+// 抽取保存配置和继续执行的逻辑为单独的函数
+function saveConfigAndContinue() {
+    // 保存配置
+    appConfig.update({
+        activationKey: appConfig.activationKey,
+        autoScroll: appConfig.autoScroll,
+        autoNextChapter: appConfig.autoNextChapter,
+        permissions: appConfig.permissions,
+        readHistory: appConfig.readHistory
+    });
+
+    // 继续执行后续操作
+    continueWithAccessibilityService();
+}
 
 //todo 7.3. 初始化配置
 $ui.scrollSpeed.setSelection(appConfig.scrollSpeedIndex);
 
+//todo 7.4. 设置权限复选框的点击事件
+// 无障碍服务权限
+$ui.accessibilityPermission.on("check", (checked) => {
+    if (checked) {
+        // 如果选中，检查是否已有权限
+        if (!auto.service) {
+            dialogs.build({
+                title: "需要无障碍服务",
+                content: "此功能需要启用无障碍服务，是否立即开启？",
+                positive: "去开启",
+                negative: "取消"
+            }).on("positive", () => {
+                // 使用 auto.waitFor() 等待用户手动启用
+                auto.waitFor();
+            }).on("negative", () => {
+                // 如果用户取消，恢复复选框状态
+                $ui.accessibilityPermission.checked = false;
+                appConfig.permissions.accessibility = false;
+            }).show();
+        }
+    } else {
+        // 如果取消选中，提示用户
+        if (auto.service) {
+            dialogs.build({
+                title: "关闭无障碍服务",
+                content: "关闭无障碍服务可能影响脚本正常运行，是否继续？",
+                positive: "继续",
+                negative: "取消"
+            }).on("positive", () => {
+                // 尝试关闭无障碍服务
+                auto.service = false;
+            }).on("negative", () => {
+                // 如果用户取消，恢复复选框状态
+                $ui.accessibilityPermission.checked = true;
+                appConfig.permissions.accessibility = true;
+            }).show();
+        }
+    }
+});
+
+// 悬浮窗权限
+$ui.floatingWindowPermission.on("check", (checked) => {
+    if (checked) {
+        // 如果选中，检查是否已有权限
+        if (!utils.checkFloatyPermission()) {
+            dialogs.build({
+                title: "需要悬浮窗权限",
+                content: "此功能需要启用悬浮窗权限，是否立即开启？",
+                positive: "去开启",
+                negative: "取消"
+            }).on("positive", () => {
+                utils.requestFloatyPermission();
+            }).on("negative", () => {
+                // 如果用户取消，恢复复选框状态
+                $ui.floatingWindowPermission.checked = false;
+                appConfig.permissions.floatingWindow = false;
+            }).show();
+        }
+    }
+});
+
+// 截图权限
+$ui.screenCapturePermission.on("check", (checked) => {
+    if (checked) {
+        // 如果选中，立即请求截图权限
+        if (!utils.checkCapturePermission()) {
+            dialogs.build({
+                title: "需要截图权限",
+                content: "此功能需要截图权限，是否立即授权？",
+                positive: "去授权",
+                negative: "取消"
+            }).on("positive", () => {
+                if (!utils.requestCapturePermission()) {
+                    toast("获取截图权限失败");
+                    // 恢复复选框状态
+                    $ui.screenCapturePermission.checked = false;
+                    appConfig.permissions.screenCapture = false;
+                }
+            }).on("negative", () => {
+                // 如果用户取消，恢复复选框状态
+                $ui.screenCapturePermission.checked = false;
+                appConfig.permissions.screenCapture = false;
+            }).show();
+        }
+    }
+});
+
+// 存储权限
+$ui.storagePermission.on("check", (checked) => {
+    if (checked) {
+        // 如果选中，检查是否已有权限
+        if (!utils.hasStoragePermission()) {
+            dialogs.build({
+                title: "需要存储权限",
+                content: "此功能需要存储权限以保存配置和历史记录，是否立即授权？",
+                positive: "去授权",
+                negative: "取消"
+            }).on("positive", () => {
+                if (!utils.requestPermissions(["android.permission.WRITE_EXTERNAL_STORAGE"])) {
+                    toast("获取存储权限失败");
+                    // 恢复复选框状态
+                    $ui.storagePermission.checked = false;
+                    appConfig.permissions.storage = false;
+                }
+            }).on("negative", () => {
+                // 如果用户取消，恢复复选框状态
+                $ui.storagePermission.checked = false;
+                appConfig.permissions.storage = false;
+            }).show();
+        }
+    }
+});
+
+// 阅读历史启用状态变更
+$ui.enableHistory.on("check", (checked) => {
+    if (checked && !utils.hasStoragePermission()) {
+        dialogs.build({
+            title: "需要存储权限",
+            content: "启用阅读历史需要存储权限，是否立即授权？",
+            positive: "去授权",
+            negative: "取消"
+        }).on("positive", () => {
+            if (!utils.requestPermissions(["android.permission.WRITE_EXTERNAL_STORAGE"])) {
+                toast("获取存储权限失败，无法启用阅读历史");
+                // 恢复复选框状态
+                $ui.enableHistory.checked = false;
+                appConfig.readHistory.enabled = false;
+            } else {
+                // 同时启用存储权限复选框
+                $ui.storagePermission.checked = true;
+                appConfig.permissions.storage = true;
+            }
+        }).on("negative", () => {
+            // 如果用户取消，恢复复选框状态
+            $ui.enableHistory.checked = false;
+            appConfig.readHistory.enabled = false;
+        }).show();
+    }
+});
 
 // 抽取后续操作为单独的函数
 function continueWithAccessibilityService() {
@@ -384,15 +595,41 @@ function toggleControlPanel() {
 
         // 设置按钮
         floatyWindow.settingsButton.setOnClickListener(function (view) {
-            toast("打开设置");
+            // 收起控制面板
             toggleControlPanel();
-            showSettingsDialog();
+            
+            // 暂停程序
+            appConfig.update({
+                readComic: {
+                    isPaused: true,
+                    shouldExit: false
+                }
+            });
+
+            // 显示设置对话框
+            showSettingsDialog().then(() => {
+                // 对话框关闭后继续运行程序
+                appConfig.update({
+                    readComic: {
+                        isPaused: false,
+                        shouldExit: false
+                    }
+                });
+            });
         });
 
         // 退出按钮
         floatyWindow.exitButton.setOnClickListener(function (view) {
             // 收起控制面板
             toggleControlPanel();
+
+            // 暂停程序
+            appConfig.update({
+                readComic: {
+                    isPaused: true,
+                    shouldExit: false
+                }
+            });
 
             dialogs.confirm("确认退出", "确定要退出脚本吗？", function (confirmed) {
                 if (confirmed) {
@@ -406,7 +643,6 @@ function toggleControlPanel() {
                                 isPaused: true
                             }
                         });
-
 
                         // 关闭悬浮窗
                         if (floatyWindow) {
@@ -430,6 +666,14 @@ function toggleControlPanel() {
                         ui.finish();
                         exit();
                     }
+                } else {
+                    // 用户取消退出，继续运行程序
+                    appConfig.update({
+                        readComic: {
+                            isPaused: false,
+                            shouldExit: false
+                        }
+                    });
                 }
             });
         });
@@ -443,222 +687,237 @@ function toggleControlPanel() {
 
 //todo 8.3. 显示设置对话框
 function showSettingsDialog() {
-    try {
-        logger.info("显示设置对话框");
+    return new Promise((resolve, reject) => {
+        try {
+            logger.info("显示设置对话框");
 
-        // 创建视图
-        let view = ui.inflate(
-            <vertical padding="16">
-                <text text="阅读速度 (ms)" textSize="14sp" textColor="#333333" marginBottom="8" />
-                <seekbar id="speedSeekBar" max="3000" min="500" />
-                <text id="speedValue" text={appConfig.readSpeed + " ms"} textSize="12sp" textColor="#666666" marginBottom="16" gravity="center" />
+            // 创建视图
+            let view = ui.inflate(
+                <vertical padding="16">
+                    <text text="阅读速度 (ms)" textSize="14sp" textColor="#333333" marginBottom="8" />
+                    <seekbar id="speedSeekBar" max="3000" min="500" />
+                    <text id="speedValue" text={appConfig.readSpeed + " ms"} textSize="12sp" textColor="#666666" marginBottom="16" gravity="center" />
 
-                <horizontal marginBottom="16">
-                    <checkbox id="autoScrollCheck" text="自动滚动" checked={appConfig.autoScroll} textSize="14sp" textColor="#333333" />
-                    <checkbox id="autoNextChapterCheck" text="自动下一章" checked={appConfig.autoNextChapter} marginLeft="16" textSize="14sp" textColor="#333333" />
-                </horizontal>
-
-                <text text="高级设置" textSize="16sp" textColor="#333333" marginBottom="8" marginTop="8" />
-                <horizontal marginBottom="16">
-                    <checkbox id="debugModeCheck" text="调试模式" checked={appConfig.debugMode} textSize="14sp" textColor="#333333" />
-                    <checkbox id="accessibilityCheck" text="使用无障碍服务" checked={appConfig.useAccessibilityService} marginLeft="16" textSize="14sp" textColor="#333333" />
-                </horizontal>
-
-                {/* 日志设置部分 - 仅在调试模式下显示 */}
-                <vertical id="logSettingsContainer" visibility={appConfig.debugMode ? "visible" : "gone"}>
-                    <text text="日志设置" textSize="16sp" textColor="#333333" marginBottom="8" marginTop="8" />
-                    <horizontal marginBottom="8">
-                        <text text="日志级别：" textSize="14sp" textColor="#333333" layout_gravity="center_vertical" />
-                        <spinner id="logLevelSpinner" entries="调试|信息|警告|错误|关闭" />
-                    </horizontal>
                     <horizontal marginBottom="16">
-                        <checkbox id="logToFileCheck" text="记录到文件" checked={appConfig.logging ? appConfig.logging.logToFile : true} textSize="14sp" textColor="#333333" />
-                        <checkbox id="deviceInfoCheck" text="收集设备信息" checked={appConfig.logging ? appConfig.logging.deviceInfo : true} marginLeft="16" textSize="14sp" textColor="#333333" />
+                        <checkbox id="autoScrollCheck" text="自动滚动" checked={appConfig.autoScroll} textSize="14sp" textColor="#333333" />
+                        <checkbox id="autoNextChapterCheck" text="自动下一章" checked={appConfig.autoNextChapter} marginLeft="16" textSize="14sp" textColor="#333333" />
                     </horizontal>
 
-                    {/* 错误上报设置 */}
-                    <text text="错误上报设置" textSize="16sp" textColor="#333333" marginBottom="8" marginTop="8" />
-                    <horizontal marginBottom="8">
-                        <checkbox id="errorReportCheck" text="启用错误上报" checked={appConfig.logging && appConfig.logging.errorReport} textSize="14sp" textColor="#333333" />
+                    <text text="高级设置" textSize="16sp" textColor="#333333" marginBottom="8" marginTop="8" />
+                    <horizontal marginBottom="16">
+                        <checkbox id="debugModeCheck" text="调试模式" checked={appConfig.debugMode} textSize="14sp" textColor="#333333" />
+                        <checkbox id="accessibilityCheck" text="使用无障碍服务" checked={appConfig.useAccessibilityService} marginLeft="16" textSize="14sp" textColor="#333333" />
                     </horizontal>
-                    <text text="上报地址：" textSize="14sp" textColor="#333333" marginBottom="4" />
-                    <input id="reportUrlInput" hint="请输入错误上报服务器地址" text={appConfig.logging && appConfig.logging.reportUrl || ""} textSize="14sp" />
 
-                    <horizontal marginTop="16">
-                        <button id="exportLogsBtn" text="导出日志" w="*" style="Widget.AppCompat.Button.Colored" textColor="#ffffff" bg={appConfig.theme} />
-                    </horizontal>
+                    {/* 日志设置部分 - 仅在调试模式下显示 */}
+                    <vertical id="logSettingsContainer" visibility={appConfig.debugMode ? "visible" : "gone"}>
+                        <text text="日志设置" textSize="16sp" textColor="#333333" marginBottom="8" marginTop="8" />
+                        <horizontal marginBottom="8">
+                            <text text="日志级别：" textSize="14sp" textColor="#333333" layout_gravity="center_vertical" />
+                            <spinner id="logLevelSpinner" entries="调试|信息|警告|错误|关闭" />
+                        </horizontal>
+                        <horizontal marginBottom="16">
+                            <checkbox id="logToFileCheck" text="记录到文件" checked={appConfig.logging ? appConfig.logging.logToFile : true} textSize="14sp" textColor="#333333" />
+                            <checkbox id="deviceInfoCheck" text="收集设备信息" checked={appConfig.logging ? appConfig.logging.deviceInfo : true} marginLeft="16" textSize="14sp" textColor="#333333" />
+                        </horizontal>
+
+                        {/* 错误上报设置 */}
+                        <text text="错误上报设置" textSize="16sp" textColor="#333333" marginBottom="8" marginTop="8" />
+                        <horizontal marginBottom="8">
+                            <checkbox id="errorReportCheck" text="启用错误上报" checked={appConfig.logging && appConfig.logging.errorReport} textSize="14sp" textColor="#333333" />
+                        </horizontal>
+                        <text text="上报地址：" textSize="14sp" textColor="#333333" marginBottom="4" />
+                        <input id="reportUrlInput" hint="请输入错误上报服务器地址" text={appConfig.logging && appConfig.logging.reportUrl || ""} textSize="14sp" />
+
+                        <horizontal marginTop="16">
+                            <button id="exportLogsBtn" text="导出日志" w="*" style="Widget.AppCompat.Button.Colored" textColor="#ffffff" bg={appConfig.theme} />
+                        </horizontal>
+                    </vertical>
                 </vertical>
-            </vertical>
-        );
+            );
 
-        // 设置seekbar的初始值
-        let initialProgress = Math.floor(Math.max(0, Math.min(2500, appConfig.readSpeed - 500)));
-        logger.debug("初始进度: " + initialProgress + ", 配置: " + JSON.stringify(appConfig));
-        view.speedSeekBar.setProgress(initialProgress);
+            // 设置seekbar的初始值
+            let initialProgress = Math.floor(Math.max(0, Math.min(2500, appConfig.readSpeed - 500)));
+            logger.debug("初始进度: " + initialProgress + ", 配置: " + JSON.stringify(appConfig));
+            view.speedSeekBar.setProgress(initialProgress);
 
-        //  监听seekbar变化
-        view.speedSeekBar.setOnSeekBarChangeListener({
-            onProgressChanged: function (seekBar, progress, fromUser) {
-                logger.debug("进度变化: " + progress);
-                let value = Math.floor(Math.max(500, Math.min(3000, progress + 500)));
-                logger.debug("新的速度值: " + value);
-                view.speedValue.setText(value + " ms");
-            }
-        });
-
-        // 设置日志级别下拉选择框的初始值
-        let logLevelMap = {
-            "debug": 0,
-            "info": 1,
-            "warn": 2,
-            "error": 3,
-            "none": 4
-        };
-        let currentLogLevel = appConfig.logging ? appConfig.logging.logLevel : "info";
-        view.logLevelSpinner.setSelection(logLevelMap[currentLogLevel] || 1);
-
-        // 调试模式复选框变化监听
-        view.debugModeCheck.on("check", function (checked) {
-            // 根据调试模式状态显示或隐藏日志设置
-            view.logSettingsContainer.attr("visibility", checked ? "visible" : "gone");
-        });
-
-        // 导出日志按钮点击事件
-        view.exportLogsBtn.on("click", function () {
-            try {
-                if (logger && logger.getLogArchive) {
-                    let archivePath = logger.getLogArchive();
-                    if (archivePath) {
-                        toast("日志已导出到: " + archivePath);
-                        // 询问用户是否要分享日志
-                        dialogs.confirm("日志已导出", "日志已导出到: " + archivePath + "\n\n是否立即分享日志?", function (confirmed) {
-                            if (confirmed) {
-                                // 分享日志文件
-                                app.viewFile(archivePath);
-                            }
-                        });
-                    } else {
-                        logger.warn("导出日志失败，请确保日志已记录")
-                        toast("导出日志失败，请确保日志已记录");
-                    }
-                } else {
-                    logger.warn("系统日志不可用")
-                    toast("日志系统不可用");
+            //  监听seekbar变化
+            view.speedSeekBar.setOnSeekBarChangeListener({
+                onProgressChanged: function (seekBar, progress, fromUser) {
+                    logger.debug("进度变化: " + progress);
+                    let value = Math.floor(Math.max(500, Math.min(3000, progress + 500)));
+                    logger.debug("新的速度值: " + value);
+                    view.speedValue.setText(value + " ms");
                 }
-            } catch (e) {
-                logger.error("导出日志出错", e);
-                toast("导出日志出错: " + e);
-            }
-        });
+            });
 
-        // 创建对话框
-        let dialog = dialogs.build({
-            title: "漫画阅读设置",
-            titleColor: "#333333",
-            customView: view,
-            positive: "确定",
-            negative: "取消",
-            neutral: "重置",
-            cancelable: true
-        });
+            // 设置日志级别下拉选择框的初始值
+            let logLevelMap = {
+                "debug": 0,
+                "info": 1,
+                "warn": 2,
+                "error": 3,
+                "none": 4
+            };
+            let currentLogLevel = appConfig.logging ? appConfig.logging.logLevel : "info";
+            view.logLevelSpinner.setSelection(logLevelMap[currentLogLevel] || 1);
 
-        // 设置确定按钮点击事件
-        dialog.on("positive", () => {
-            try {
-                // 获取设置的值并进行有效性检查
-                let progress = 0;
+            // 调试模式复选框变化监听
+            view.debugModeCheck.on("check", function (checked) {
+                // 根据调试模式状态显示或隐藏日志设置
+                view.logSettingsContainer.attr("visibility", checked ? "visible" : "gone");
+            });
+
+            // 导出日志按钮点击事件
+            view.exportLogsBtn.on("click", function () {
                 try {
-                    let rawProgress = view.speedSeekBar.getProgress();
-                    // 确保rawProgress是一个有效的数值
-                    progress = Math.floor(typeof rawProgress === 'number' && !isNaN(rawProgress) ? rawProgress : 0);
+                    if (logger && logger.getLogArchive) {
+                        let archivePath = logger.getLogArchive();
+                        if (archivePath) {
+                            toast("日志已导出到: " + archivePath);
+                            // 询问用户是否要分享日志
+                            dialogs.confirm("日志已导出", "日志已导出到: " + archivePath + "\n\n是否立即分享日志?", function (confirmed) {
+                                if (confirmed) {
+                                    // 分享日志文件
+                                    app.viewFile(archivePath);
+                                }
+                            });
+                        } else {
+                            logger.warn("导出日志失败，请确保日志已记录")
+                            toast("导出日志失败，请确保日志已记录");
+                        }
+                    } else {
+                        logger.warn("系统日志不可用")
+                        toast("日志系统不可用");
+                    }
                 } catch (e) {
-                    logger.error("获取进度值出错", e);
+                    logger.error("导出日志出错", e);
+                    toast("导出日志出错: " + e);
                 }
-                let newSpeed = Math.floor(Math.max(500, Math.min(3000, progress + 500)));
-                let autoScroll = view.autoScrollCheck.isChecked();
-                let autoNextChapter = view.autoNextChapterCheck.isChecked();
-                let debugMode = view.debugModeCheck.isChecked();
-                let useAccessibility = view.accessibilityCheck.isChecked();
+            });
 
-                // 获取日志设置
-                let logLevelIndex = view.logLevelSpinner.getSelectedItemPosition();
-                let logLevelOptions = ["debug", "info", "warn", "error", "none"];
-                let logLevel = logLevelOptions[logLevelIndex] || "info";
-                let logToFile = view.logToFileCheck.isChecked();
-                let deviceInfo = view.deviceInfoCheck.isChecked();
+            // 创建对话框
+            let dialog = dialogs.build({
+                title: "漫画阅读设置",
+                titleColor: "#333333",
+                customView: view,
+                positive: "确定",
+                negative: "取消",
+                neutral: "重置",
+                cancelable: true
+            });
 
-                // 获取错误上报设置
-                let errorReport = debugMode && view.errorReportCheck.isChecked();
-                let reportUrl = view.reportUrlInput.getText().toString().trim();
-
-                console.log("保存设置: 速度=" + newSpeed + ", 调试模式=" + debugMode);
-
-                // 更新配置
-                appConfig.update({
-                    readSpeed: newSpeed,
-                    autoScroll: autoScroll,
-                    autoNextChapter: autoNextChapter,
-                    debugMode: debugMode,
-                    useAccessibilityService: useAccessibility,
-                    logging: {
-                        enabled: logLevel !== "none",
-                        logLevel: logLevel,
-                        logToFile: logToFile,
-                        deviceInfo: deviceInfo,
-                        errorReport: errorReport,
-                        reportUrl: reportUrl
+            // 设置确定按钮点击事件
+            dialog.on("positive", () => {
+                try {
+                    // 获取设置的值并进行有效性检查
+                    let progress = 0;
+                    try {
+                        let rawProgress = view.speedSeekBar.getProgress();
+                        // 确保rawProgress是一个有效的数值
+                        progress = Math.floor(typeof rawProgress === 'number' && !isNaN(rawProgress) ? rawProgress : 0);
+                    } catch (e) {
+                        logger.error("获取进度值出错", e);
                     }
-                });
+                    let newSpeed = Math.floor(Math.max(500, Math.min(3000, progress + 500)));
+                    let autoScroll = view.autoScrollCheck.isChecked();
+                    let autoNextChapter = view.autoNextChapterCheck.isChecked();
+                    let debugMode = view.debugModeCheck.isChecked();
+                    let useAccessibility = view.accessibilityCheck.isChecked();
 
-                // 更新日志级别
-                if (logger && logger.setLogLevel) {
-                    logger.setLogLevel(logLevel);
-                    logger.info("日志级别已更改为: " + logLevel);
-                }
+                    // 获取日志设置
+                    let logLevelIndex = view.logLevelSpinner.getSelectedItemPosition();
+                    let logLevelOptions = ["debug", "info", "warn", "error", "none"];
+                    let logLevel = logLevelOptions[logLevelIndex] || "info";
+                    let logToFile = view.logToFileCheck.isChecked();
+                    let deviceInfo = view.deviceInfoCheck.isChecked();
 
-                // 更新错误上报设置
-                if (logger && typeof logger.options !== 'undefined') {
-                    logger.options.errorReport = errorReport;
-                    logger.options.reportUrl = reportUrl;
-                    logger.info("错误上报设置已更新: " + (errorReport ? "已启用" : "已禁用"));
-                    if (errorReport) {
-                        logger.info("错误上报地址: " + reportUrl);
+                    // 获取错误上报设置
+                    let errorReport = debugMode && view.errorReportCheck.isChecked();
+                    let reportUrl = view.reportUrlInput.getText().toString().trim();
+
+                    console.log("保存设置: 速度=" + newSpeed + ", 调试模式=" + debugMode);
+
+                    // 更新配置
+                    appConfig.update({
+                        readSpeed: newSpeed,
+                        autoScroll: autoScroll,
+                        autoNextChapter: autoNextChapter,
+                        debugMode: debugMode,
+                        useAccessibilityService: useAccessibility,
+                        logging: {
+                            enabled: logLevel !== "none",
+                            logLevel: logLevel,
+                            logToFile: logToFile,
+                            deviceInfo: deviceInfo,
+                            errorReport: errorReport,
+                            reportUrl: reportUrl
+                        }
+                    });
+
+                    // 更新日志级别
+                    if (logger && logger.setLogLevel) {
+                        logger.setLogLevel(logLevel);
+                        logger.info("日志级别已更改为: " + logLevel);
                     }
+
+                    // 更新错误上报设置
+                    if (logger && typeof logger.options !== 'undefined') {
+                        logger.options.errorReport = errorReport;
+                        logger.options.reportUrl = reportUrl;
+                        logger.info("错误上报设置已更新: " + (errorReport ? "已启用" : "已禁用"));
+                        if (errorReport) {
+                            logger.info("错误上报地址: " + reportUrl);
+                        }
+                    }
+
+                    // 更新控制器设置
+                    // if (comicController && comicController.running) {
+                    //     comicController.setReadSpeed(newSpeed);
+                    // }
+
+
+                    toast("设置已保存");
+                    logger.info("设置已保存: 速度=" + newSpeed + ", 调试模式=" + debugMode);
+                    dialog.dismiss();
+                    resolve();
+                } catch (e) {
+                    console.error("保存设置时出错: " + e);
+                    logger.error("保存设置时出错", e);
+                    toast("保存设置失败: " + e);
+                    dialog.dismiss();
+                    reject(e);
                 }
+            });
 
-                // 更新控制器设置
-                // if (comicController && comicController.running) {
-                //     comicController.setReadSpeed(newSpeed);
-                // }
+            // 设置取消按钮点击事件
+            dialog.on("negative", () => {
+                dialog.dismiss();
+                resolve();
+            });
 
+            // 设置重置按钮点击事件
+            dialog.on("neutral", () => {
+                // 重置设置
+                appConfig.resetConfig();
+                toast("设置已重置为默认值");
+                logger.info("设置已重置为默认值");
+                // 关闭当前对话框并重新打开
+                dialog.dismiss();
+                setTimeout(() => {
+                    showSettingsDialog().then(resolve);
+                }, 500);
+            });
 
-                toast("设置已保存");
-                logger.info("设置已保存: 速度=" + newSpeed + ", 调试模式=" + debugMode);
-            } catch (e) {
-                console.error("保存设置时出错: " + e);
-                logger.error("保存设置时出错", e);
-                toast("保存设置失败: " + e);
-            }
-        });
-
-        // 设置重置按钮点击事件
-        dialog.on("neutral", () => {
-            // 重置设置
-            appConfig.reset();
-            toast("设置已重置为默认值");
-            logger.info("设置已重置为默认值");
-            // 关闭当前对话框并重新打开
-            dialog.dismiss();
-            setTimeout(showSettingsDialog, 500);
-        });
-
-        // 显示对话框
-        dialog.show();
-        logger.info("设置对话框已显示");
-    } catch (e) {
-        logger.error("显示设置对话框时出错", e);
-        toast("显示设置对话框失败: " + e);
-    }
+            // 显示对话框
+            dialog.show();
+            logger.info("设置对话框已显示");
+        } catch (e) {
+            logger.error("显示设置对话框时出错", e);
+            toast("显示设置对话框失败: " + e);
+            reject(e);
+        }
+    });
 }
 
 //! 设置历史页面 和 android页面的自带的选项菜单的监听

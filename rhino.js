@@ -525,14 +525,15 @@ function checkHomePage(status) {
             logger.info(`第 ${attempts} 次检查首页状态`);
 
             var nav = id("contentWrapper").find();
-            // var emptyTextElement = className("android.widget.TextView").text("").findOne(200);
+            var emptyTextElement = className("android.widget.TextView").text("").findOne(200);
             var lookButton = text('読み始める').findOne(200);
             var lookButton2 = text('続きを読む').findOne(200);
             console.log("detailPage----------",text("最近の更新").exists());
 
             //点击返回首页
             if (status != "detail") {
-                if (nav.size() == 4 && !lookButton && !lookButton2 && status != "detail") {
+                if (nav.size() == 4 && !lookButton && !lookButton2 && !emptyTextElement) {
+                    sleep(1000);
                     nav.get(0).clickCenter();
                     logger.info("已确认在首页");
                     return true;
@@ -645,7 +646,7 @@ function chapterAndStartLook() {
     try {
         var clickLikeOn = text('ic_read_sc_on');
         var clickLikeOff = text('ic_read_sc');
-
+        sleep(2000);
         // 如果找到了元素，才尝试进行颜色检查
         if (clickLikeOn.exists() || clickLikeOff.exists()) {
             if (clickLikeOn.exists()) {
@@ -866,7 +867,7 @@ function checkControlStatus() {
         // 等待直到恢复或退出
         while (appConfig.readComic.isPaused && appConfig.readComic.running && !appConfig.readComic.shouldExit) {
             console.log("检测到暂停状态");
-            sleep(300); // 暂停期间每300毫秒检查一次状态
+            sleep(500); // 暂停期间每300毫秒检查一次状态
         }
         console.log("检测到暂停状态结束，开始继续执行");
         // 检查退出暂停循环的原因
@@ -921,6 +922,89 @@ try {
     console.error("设置错误处理器时出错: " + e);
 }
 
+//! 记录阅读历史
+function saveReadHistory(comicInfo) {
+    if (!appConfig.readHistory.enabled) {
+        return;
+    }
+
+    try {
+        // 读取现有历史记录
+        var historyFile = files.path("./history.json");
+        var history = [];
+        if (files.exists(historyFile)) {
+            history = JSON.parse(files.read(historyFile));
+        }
+
+        // 添加新记录
+        var record = {
+            comicId: comicInfo.id || "",
+            title: comicInfo.title || "未知标题",
+            chapter: comicInfo.chapter || 1,
+            timestamp: new Date().getTime(),
+            userId: appConfig.userInfo.userId || "",
+            username: appConfig.userInfo.username || ""
+        };
+
+        // 检查是否已存在相同漫画的记录
+        var existingIndex = history.findIndex(item => item.comicId === record.comicId);
+        if (existingIndex !== -1) {
+            // 更新现有记录
+            history[existingIndex] = record;
+        } else {
+            // 添加新记录
+            history.unshift(record);
+        }
+
+        // 如果启用了自动清理，保持记录数量在限制内
+        if (appConfig.readHistory.autoClean && history.length > appConfig.readHistory.maxItems) {
+            history = history.slice(0, appConfig.readHistory.maxItems);
+        }
+
+        // 保存历史记录
+        files.write(historyFile, JSON.stringify(history, null, 2));
+        logger.info("已保存阅读历史");
+
+    } catch (e) {
+        logger.error("保存阅读历史失败: " + e);
+    }
+}
+
+//! 获取漫画信息
+function getComicInfo() {
+    try {
+        var title = "";
+        var chapter = 1;
+        var id = "";
+
+        // 尝试获取标题
+        var titleElement = textMatches(".*").findOne(1000);
+        if (titleElement) {
+            title = titleElement.text();
+        }
+
+        // 尝试获取章节信息
+        var chapterMatch = title.match(/第(\d+)话/);
+        if (chapterMatch) {
+            chapter = parseInt(chapterMatch[1]);
+        }
+
+        // 返回漫画信息
+        return {
+            id: id,
+            title: title,
+            chapter: chapter
+        };
+    } catch (e) {
+        logger.error("获取漫画信息失败: " + e);
+        return {
+            id: "",
+            title: "未知标题",
+            chapter: 1
+        };
+    }
+}
+
 //! 组合一下从漫画详情页面到 观看漫画的动作
 function ComicDetailToWatchComic() {
     var newChapter = chapterAndStartLook();
@@ -928,6 +1012,11 @@ function ComicDetailToWatchComic() {
         checkHomePage('detail')
         return false;
     }
+    
+    // 获取并保存漫画信息到历史记录
+    var comicInfo = getComicInfo();
+    saveReadHistory(comicInfo);
+    
     if (newChapter >= 5) {
         logger.info("未获取到章节信息,使用默认章节信息");
         newChapter = 1; // 默认章节数
