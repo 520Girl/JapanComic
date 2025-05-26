@@ -132,8 +132,7 @@ $ui.layout(
     </vertical>
 );
 
-//todo 7.1. 设置标签页切换
-$ui.scrollSpeed.setSelection(appConfig.scrollSpeedIndex);
+//todo 7.1. 设置标签页切换，
 $ui.configTab.on("click", () => {
     $ui.configPage.attr("visibility", "visible");
     $ui.historyPage.attr("visibility", "gone");
@@ -151,6 +150,7 @@ $ui.historyTab.on("click", () => {
     $ui.configIndicator.attr("bg", "#2196F3");
     $ui.historyIndicator.attr("bg", "#ffffff");
 });
+
 //todo 7.2. 设置激活按钮点击事件
 $ui.startButton.on("click", () => {
     // 保存当前配置
@@ -210,6 +210,10 @@ $ui.startButton.on("click", () => {
         return;
     }
 });
+
+//todo 7.3. 初始化配置
+$ui.scrollSpeed.setSelection(appConfig.scrollSpeedIndex);
+
 
 // 抽取后续操作为单独的函数
 function continueWithAccessibilityService() {

@@ -430,5 +430,250 @@ utils.performGC = function () {
     // toast("执行内存回收");
 }
 
+/**
+ * 检查图片元素是否包含指定RGB区间的颜色
+ * @param {UiObject} element - 要检查的图片元素
+ * @param {Object} targetColor - 目标颜色值，格式：{r: number, g: number, b: number}
+ * @param {number} threshold - 颜色匹配的阈值（0-255），默认为20
+ * @returns {boolean} 是否包含目标颜色
+ */
+utils.checkImageContainsColor = function (element, targetColor, threshold) {
+    if (!element) {
+        console.error("元素不存在");
+        return false;
+    }
+
+    threshold = threshold || 20; // 默认阈值为20
+
+    try {
+        // 获取元素的位置信息
+        var bounds = element.bounds();
+        if (!bounds) {
+            console.error("无法获取元素位置");
+            return false;
+        }
+
+        // 截取元素区域的图片
+        var img = captureScreen();
+        if (!img) {
+            console.error("截图失败");
+            return false;
+        }
+
+        // 获取元素区域的边界
+        var left = bounds.left;
+        var top = bounds.top;
+        var right = bounds.right;
+        var bottom = bounds.bottom;
+
+        // 遍历元素区域的所有像素
+        for (var x = left; x < right; x++) {
+            for (var y = top; y < bottom; y++) {
+                var color = images.pixel(img, x, y);
+
+                // 提取RGB分量
+                var r = colors.red(color);
+                var g = colors.green(color);
+                var b = colors.blue(color);
+
+                // 检查是否在阈值范围内
+                if (Math.abs(r - targetColor.r) <= threshold &&
+                    Math.abs(g - targetColor.g) <= threshold &&
+                    Math.abs(b - targetColor.b) <= threshold) {
+                    // 找到匹配的颜色，释放资源并返回true
+                    img.recycle();
+                    return true;
+                }
+            }
+        }
+
+        // 释放图片资源
+        img.recycle();
+        return false;
+    } catch (e) {
+        console.error("检查图片颜色时出错: " + e);
+        return false;
+    }
+};
+
+/**
+ * 检查是否有截屏权限
+ * @returns {boolean} 是否有截屏权限
+ */
+utils.checkCapturePermission = function () {
+    try {
+        // 尝试进行一次截图测试
+        var img = captureScreen();
+        if (img) {
+            img.recycle();
+            return true;
+        }
+        return false;
+    } catch (e) {
+        return false;
+    }
+};
+
+/**
+ * 请求截屏权限
+ * @returns {boolean} 是否成功获取权限
+ */
+utils.requestCapturePermission = function () {
+    try {
+        // 使用Auto.js的标准方法请求截屏权限
+        if (typeof requestScreenCapture === 'function') {
+            // 请求截屏权限
+            if (!requestScreenCapture()) {
+                toast("请求截屏权限失败");
+                return false;
+            }
+            return true;
+        } else {
+            // 如果requestScreenCapture不可用，尝试使用备用方法
+            try {
+                // 使用orientation作为参数
+                if (!requestScreenCapture(true)) {
+                    if (!requestScreenCapture(false)) {
+                        toast("请求截屏权限失败");
+                        return false;
+                    }
+                }
+                return true;
+            } catch (e) {
+                console.error("请求截屏权限出错: " + e);
+                return false;
+            }
+        }
+    } catch (e) {
+        console.error("请求截屏权限失败: " + e);
+        toast("请求截屏权限失败，请手动授予权限");
+        return false;
+    }
+};
+
+/**
+ * 确保有截屏权限
+ * @returns {boolean} 是否有截屏权限
+ */
+utils.ensureCapturePermission = function () {
+    if (utils.checkCapturePermission()) {
+        return true;
+    }
+
+    // 尝试请求权限
+    return utils.requestCapturePermission();
+};
+
+/**
+ * 检查元素的状态颜色（通过采样关键点）
+ * @param {UiObject} element - 要检查的元素
+ * @param {Object} targetColor - 目标颜色值 {r, g, b}
+ * @param {number} threshold - 颜色匹配的阈值（0-255），默认为20
+ * @returns {boolean} 是否匹配目标颜色
+ */
+utils.checkElementColorState = function (element, targetColor, threshold) {
+    if (!element) {
+        console.error("元素不存在");
+        return false;
+    }
+
+    // 首先检查截屏权限
+    if (!utils.ensureCapturePermission()) {
+        console.error("无法获取截屏权限");
+        return false;
+    }
+
+    threshold = threshold || 20;
+
+    try {
+        var bounds = element.bounds();
+        if (!bounds) {
+            console.error("无法获取元素位置");
+            return false;
+        }
+
+        var img = captureScreen();
+        if (!img) {
+            console.error("截图失败");
+            return false;
+        }
+
+        // 定义采样点位置（相对于元素边界的百分比）
+        var samplePoints = [
+            { x: 0.5, y: 0.5 },  // 中心点
+            { x: 0.2, y: 0.5 },  // 左侧
+            { x: 0.2, y: 0.2 },  // 左侧
+            { x: 0.2, y: 0.21 },  // 左侧
+            { x: 0.3, y: 0.3 },  // 左侧
+            { x: 0.3, y: 0.31 },  // 左侧
+            { x: 0.4, y: 0.4 },  // 左侧
+            { x: 0.6, y: 0.4 },  // 左侧
+            { x: 0.8, y: 0.5 },  // 右侧
+            { x: 0.5, y: 0.2 },  // 上方
+            { x: 0.5, y: 0.8 }   // 下方
+        ];
+
+        // 检查采样点的颜色
+        var matchCount = 0;
+        for (var i = 0; i < samplePoints.length; i++) {
+            var point = samplePoints[i];
+            var x = Math.floor(bounds.left + (bounds.right - bounds.left) * point.x);
+            var y = Math.floor(bounds.top + (bounds.bottom - bounds.top) * point.y);
+
+            var color = images.pixel(img, x, y);
+            var r = colors.red(color);
+            var g = colors.green(color);
+            var b = colors.blue(color);
+
+            if (Math.abs(r - targetColor.r) <= threshold &&
+                Math.abs(g - targetColor.g) <= threshold &&
+                Math.abs(b - targetColor.b) <= threshold) {
+                matchCount++;
+            }
+        }
+
+        img.recycle();
+
+        // 如果超过60%的采样点匹配，则认为状态匹配
+        return (matchCount / samplePoints.length) > 0;
+    } catch (e) {
+        console.error("检查元素颜色状态时出错: " + e);
+        return false;
+    }
+};
+
+/**
+ * 通过选择器检查元素状态
+ * @param {UiSelector} selector - 元素选择器
+ * @param {Array} targetRGB - 目标RGB颜色值 [r, g, b]
+ * @param {number} threshold - 阈值
+ * @returns {boolean|Object|null} 如果成功返回状态对象，失败返回null，无权限返回false
+ */
+utils.checkElementStateBySelector = function (selector, targetRGB, threshold) {
+    try {
+        var element = selector.findOne(1000);
+        if (!element) {
+            console.log("未找到目标元素");
+            return null;
+        }
+
+        // 检查是否有截屏权限
+        if (!utils.checkCapturePermission()) {
+            console.log("无截屏权限");
+            return false;
+        }
+
+        // 检查元素颜色状态
+        return utils.checkElementColorState(element, {
+            r: targetRGB[0],
+            g: targetRGB[1],
+            b: targetRGB[2]
+        }, threshold);
+    } catch (e) {
+        console.error("检查元素状态失败: " + e);
+        return null;
+    }
+};
+
 // 导出工具模块
 module.exports = utils; 
