@@ -19,7 +19,7 @@
     "useAccessibilityService": true,
     "tryAlternateMethod": true,
     "firstRun": true,
-    "activationKey": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiIsImFkbWluIjp0cnVlfQ.HyGqUXiIrB2gcSs7o-7ejNFwF2hmgSEMQ-KVMMliltwXkYOh_Mib0GX2kSJZUdqyPrtpaMEIhEY6t24x7MJDNQ",
+    "activationKey": "B5JkCpXiM1jmaAqExV32tnTKOIodby",
     "logging": {
         "enabled": true,
         "logLevel": "info",
@@ -32,6 +32,23 @@
         "errorReport": false,
         "reportUrl": "",
         "deviceInfo": true
+    },
+    "permissions":{
+        "accessibility":true,
+        "floatingWindow":true,
+        "screenCapture":true,
+        "storage":true
+    },
+    "readHistory":{
+        "enabled":true,
+        "maxItems":100,
+        "syncWithCloud":false,
+        "autoClean":true
+    },
+    "userInfo":{
+        "userId":"",
+        "username":"",
+        "isLoggedIn":false
     },
     "readComic":{
         "running":true,

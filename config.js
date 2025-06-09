@@ -17,9 +17,9 @@ var defaultConfig = {
     // moreScrollTop:0, // 记录更多页面滚动到顶部的位置
     //duration 表示等待时间，comicLoading表示漫画加载时间，appStart表示应用启动时间, interval 表示检测数据更改的评率
     scrollParams: { // 这个控制的整个自动化流程的速度
-        "0": { duration: 3200, comicLoading: 20000,appStart: 6000, interval: 1500 }, // 慢速 
-        "1": { duration: 1000, comicLoading: 10000,appStart: 4000, interval: 800 }, // 中速
-        "2": { duration: 500, comicLoading: 5000,appStart: 2000, interval: 200 }   // 快速
+        "0": { duration: 3200, comicLoading: 20000, appStart: 6000, interval: 1500 }, // 慢速 
+        "1": { duration: 1000, comicLoading: 10000, appStart: 4000, interval: 800 }, // 中速
+        "2": { duration: 500, comicLoading: 5000, appStart: 2000, interval: 200 }   // 快速
     },
     // UI设置
     floatyOpacity: 0.8,         // 悬浮窗透明度
@@ -96,7 +96,7 @@ function loadConfig() {
             var userConfig = JSON.parse(content);
 
             // 合并配置，确保新添加的配置项也存在
-            var mergedConfig = Object.assign({}, defaultConfig, userConfig);
+            var mergedConfig = Object.assign({}, userConfig, defaultConfig);
 
             // 检查版本更新，可能需要更新配置结构
             if (mergedConfig.version !== defaultConfig.version) {

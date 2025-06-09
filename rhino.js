@@ -11,7 +11,9 @@ var config = require("./config.js");
 var utils = require("./utils.js");
 appConfig = config.appConfig;
 logger = utils.initLogger("rhino", appConfig);
-var packageName = "uni.UNIE701BEA";
+var packageName = "uni.UNI9BC7DBD";
+var packageNamess = currentPackage();
+console.log("当前应用的包名为：" + packageNamess);
 var scrollParams = appConfig.scrollParams[appConfig.scrollSpeedIndex];
 var setIntervalLookConfig = null;
 var moreWatchNum = 0;
@@ -211,25 +213,22 @@ function checkLogin() {
 
     // 等待应用启动并加载内容
 
-    while (new Date().getTime() - startTime < timeout) {
-        // 检查控制状态
-        if (!checkControlStatus()) return false;
+    // while (new Date().getTime() - startTime < timeout) {
+    //     // 检查控制状态
+    //     if (!checkControlStatus()) return false;
 
-        if (id("contentWrapper").exists()) {
-            logger.info('检测成功');
-            break;
-        }
-        sleep(500);  // 增加等待时间，减少CPU占用
-    }
-
+    //     if (id("contentWrapper").exists()) {
+    //         logger.info('检测成功');
+    //         break;
+    //     }
+    //     sleep(500);  // 增加等待时间，减少CPU占用
+    // }
+    id("contentWrapper").waitFor();
     if (!id("contentWrapper").exists()) {
         toast('未检测成功,请重启尝试')
         logger.error('未检测成功,请重启尝试');
         return false;
     }
-
-    // 休眠短暂时间，确保UI完全加载
-    sleep(scrollParams.duration);
 
     // 检查控制状态
     if (!checkControlStatus()) return false;
@@ -282,7 +281,6 @@ function checkLogin() {
 
 //!? 1.1 用户登录
 function userLogin() {
-    console.log('userLogin', text('今すぐログイン').exists(), text('観光客').exists());
     // 点击登录按钮
     if (text('今すぐログイン').exists() || text('観光客').exists()) {
         return false;
@@ -294,10 +292,28 @@ function userLogin() {
 function startWatchComic() {
     // 尝试点击视图
     try {
+
+         // 先滚动到顶部
+         const screenInfo = defineScreenGrid();
+         const startX = screenInfo.screenWidth / 2;
+         const startY = screenInfo.screenHeight * 0.2;
+         const endX = screenInfo.screenWidth / 2;
+         const endY = screenInfo.screenHeight * 0.8;
+ 
+         // 向上滑动多次以确保到达顶部
+        //  for (let i = 0; i < 3; i++) {
+        //      swipe(startX, startY, endX, endY, 500);
+        //      sleep(500);
+        //  }
+ 
+         // 等待页面稳定
+         sleep(1000);
+
         var mainView = text("もっと見る").findOne(scrollParams.duration);
         if (mainView) {
             logger.info("点击进入最近更新");
             mainView.clickCenter();
+            sleep(scrollParams.duration);
             return true;
         } else {
             logger.warn("未找到最近更新元素");
@@ -471,10 +487,9 @@ function scrollScreen() {
 }
 
 //!? 3.1 滚动最近更新页面 并点击元素
-function controlGridClick() { 
+function controlGridClick() {
     var scrollCount = 0;
     const maxScrolls = 1; // 最大滚动次数
-
 
     while (scrollCount < maxScrolls) {
         // 依次点击每个格子的中心
@@ -526,13 +541,15 @@ function checkHomePage(status) {
 
             var nav = id("contentWrapper").find();
             var emptyTextElement = className("android.widget.TextView").text("").findOne(200);
+            var lookButton4 = text("pages/index/index[1]").exists();
             var lookButton = text('読み始める').findOne(200);
             var lookButton2 = text('続きを読む').findOne(200);
-            console.log("detailPage----------",text("最近の更新").exists());
+            var lookButton3 = text('更新待ち').findOne(200);
+
 
             //点击返回首页
             if (status != "detail") {
-                if (nav.size() == 4 && !lookButton && !lookButton2 && !emptyTextElement) {
+                if (nav.size() == 4 && !lookButton && !lookButton2 && !emptyTextElement && !lookButton3) {
                     sleep(1000);
                     nav.get(0).clickCenter();
                     logger.info("已确认在首页");
@@ -543,7 +560,7 @@ function checkHomePage(status) {
                     sleep(1000); // 等待返回动作完成
                 }
             } else {
-                if (!text("最近の更新").exists() || lookButton || lookButton2) {
+                if (!lookButton4 || lookButton || lookButton2) {
                     back();
                     logger.info("返回更新页面");
                     sleep(1000); // 等待返回动作完成
@@ -650,38 +667,40 @@ function chapterAndStartLook() {
         // 如果找到了元素，才尝试进行颜色检查
         if (clickLikeOn.exists() || clickLikeOff.exists()) {
             if (clickLikeOn.exists()) {
-                return false;
+                 //当点击过收藏可以继续观看 
+                // return false;
             }
-        }else{
-            if (clickLike && clickLike.exists()) {
+        } else {
+            if (clickLikeOn && clickLikeOn.exists()) {
                 if (utils.ensureCapturePermission()) {
                     var isLike = utils.checkElementStateBySelector(
-                        clickLike,
+                        clickLikeOn,
                         [255, 100, 17], // 选中状态的颜色
                         20
                     );
-                    if(isLike > 0){
-                        return false;
+                    if (isLike > 0) {
+                        //当点击过收藏可以继续观看 
+                        // return false;
                     }
                 } else {
                     logger.info("无截屏权限，跳过颜色检查");
                 }
-            } 
+            }
         }
-        
+
     } catch (e) {
         logger.warn("颜色检查失败，继续执行: " + e);
     }
 
     try {
-        textElements = textMatches("更新\\d+言葉").find();
-        if (textElements.size() > 0) {
+        textElements = textMatches("更新\\d+話").find();
+        if (textElements && textElements.size() > 0) {
             var element = textElements.get(0);
             var fullText = element.text();
             logger.info("找到元素文本: " + fullText);
 
             // 使用正则表达式提取数字
-            var match = fullText.match(/更新(\d+)言葉/);
+            var match = fullText.match(/更新(\d+)話/);
             if (match && match[1]) {
                 number = parseInt(match[1]);
                 logger.info("提取到章节: " + number);
@@ -690,6 +709,7 @@ function chapterAndStartLook() {
             }
         } else {
             logger.info("未找到匹配的文本元素");
+            return false;
         }
     } catch (e) {
         logger.error("获取章节信息出错: " + e);
@@ -733,7 +753,7 @@ function scrollToBottom() {
     var isScrollEnd = false;
     var lastY = -1;
     var count = 0;
-    var maxScrollAttempts = 5; // 最大滚动尝试次数，防止无限循环
+    var maxScrollAttempts = 12; // 最大滚动尝试次数，防止无限循环
 
     toast("开始滚动页面...");
 
@@ -755,7 +775,8 @@ function scrollToBottom() {
         // 检查是否出现了特定文本"次の話を引っ張っています~"
         try {
             var endTextFound = textContains("次の話を引っ張っています").exists() ||
-                textContains("マスター、もう終わりだ。~").exists();
+                textContains("マスター、もう終わりだ。~").exists() ||
+                textContains("主人、すでに最後まで来ましたよ~").exists();
 
             if (endTextFound) {
                 logger.info("检测到'次の話を引っ張っています~'文本，点击屏幕");
@@ -787,6 +808,23 @@ function scrollToBottom() {
         // 等待滚动动画完成
         sleep(appConfig.readSpeed);
 
+        // 检查是否出现了特定文本"次の話を引っ張っています~"
+        try {
+            var endTextFound = textContains("次の話を引っ張っています").exists() ||
+                textContains("マスター、もう終わりだ。~").exists() ||
+                textContains("主人、すでに最後まで来ましたよ~").exists();
+
+            if (endTextFound) {
+                logger.info("检测到'次の話を引っ張っています~'文本，点击屏幕");
+
+                isScrollEnd = true;
+                toast("当前章节结束,已结束滚动");
+                break;
+            }
+        } catch (e) {
+            logger.error("检查文本出错: " + e);
+        }
+
         // 再次检查控制状态
         if (!checkControlStatus()) return false;
 
@@ -812,7 +850,7 @@ function scrollToBottom() {
     }
 
     if (count >= maxScrollAttempts) {
-        toast("达到最大滚动次数，停止滚动");
+        toast("滚动结束");
     }
 
     // 确保在返回前再次检查运行状态
@@ -833,13 +871,22 @@ function clickNext() {
         // while(!className("android.widget.TextView").text("次の言葉").exists()){
         //     sleep(1000);
         // }
+        text("次の言葉").waitFor();
+        console.log("找到次の言葉",text("次の言葉").exists());
 
-        var nextButton = className("android.widget.TextView").text("次の言葉").waitFor();
+        var nextButton = text("次の言葉").findOne()
+        if(className("android.widget.TextView").text("フォロー").exists()){
+            className("android.widget.TextView").text("フォロー").findOne().clickCenter();
+        }
+        sleep(500);
+
         if (nextButton) {
             nextButton.clickCenter();
+            sleep(scrollParams.duration);
             return true;
         } else {
             toast("未找到'次の言葉'按钮");
+            sleep(scrollParams.duration);
             return false;
         }
     } catch (e) {
@@ -922,107 +969,22 @@ try {
     console.error("设置错误处理器时出错: " + e);
 }
 
-//! 记录阅读历史
-function saveReadHistory(comicInfo) {
-    if (!appConfig.readHistory.enabled) {
-        return;
-    }
-
-    try {
-        // 读取现有历史记录
-        var historyFile = files.path("./history.json");
-        var history = [];
-        if (files.exists(historyFile)) {
-            history = JSON.parse(files.read(historyFile));
-        }
-
-        // 添加新记录
-        var record = {
-            comicId: comicInfo.id || "",
-            title: comicInfo.title || "未知标题",
-            chapter: comicInfo.chapter || 1,
-            timestamp: new Date().getTime(),
-            userId: appConfig.userInfo.userId || "",
-            username: appConfig.userInfo.username || ""
-        };
-
-        // 检查是否已存在相同漫画的记录
-        var existingIndex = history.findIndex(item => item.comicId === record.comicId);
-        if (existingIndex !== -1) {
-            // 更新现有记录
-            history[existingIndex] = record;
-        } else {
-            // 添加新记录
-            history.unshift(record);
-        }
-
-        // 如果启用了自动清理，保持记录数量在限制内
-        if (appConfig.readHistory.autoClean && history.length > appConfig.readHistory.maxItems) {
-            history = history.slice(0, appConfig.readHistory.maxItems);
-        }
-
-        // 保存历史记录
-        files.write(historyFile, JSON.stringify(history, null, 2));
-        logger.info("已保存阅读历史");
-
-    } catch (e) {
-        logger.error("保存阅读历史失败: " + e);
-    }
-}
-
-//! 获取漫画信息
-function getComicInfo() {
-    try {
-        var title = "";
-        var chapter = 1;
-        var id = "";
-
-        // 尝试获取标题
-        var titleElement = textMatches(".*").findOne(1000);
-        if (titleElement) {
-            title = titleElement.text();
-        }
-
-        // 尝试获取章节信息
-        var chapterMatch = title.match(/第(\d+)话/);
-        if (chapterMatch) {
-            chapter = parseInt(chapterMatch[1]);
-        }
-
-        // 返回漫画信息
-        return {
-            id: id,
-            title: title,
-            chapter: chapter
-        };
-    } catch (e) {
-        logger.error("获取漫画信息失败: " + e);
-        return {
-            id: "",
-            title: "未知标题",
-            chapter: 1
-        };
-    }
-}
 
 //! 组合一下从漫画详情页面到 观看漫画的动作
 function ComicDetailToWatchComic() {
     var newChapter = chapterAndStartLook();
-    if(newChapter === false){
+   
+    if (newChapter === false) {
         checkHomePage('detail')
         return false;
     }
-    
-    // 获取并保存漫画信息到历史记录
-    var comicInfo = getComicInfo();
-    saveReadHistory(comicInfo);
-    
-    if (newChapter >= 5) {
-        logger.info("未获取到章节信息,使用默认章节信息");
-        newChapter = 1; // 默认章节数
-    }
 
-    var currentChapter = 1;
+    // if (newChapter >= 5) {
+    //     logger.info("未获取到章节信息,使用默认章节信息");
+    //     newChapter = 1; // 默认章节数
+    // }
+
+    var currentChapter = 2;
 
     // 章节阅读循环
     while (currentChapter <= newChapter && appConfig.readComic.running && !appConfig.readComic.shouldExit) {
@@ -1041,10 +1003,11 @@ function ComicDetailToWatchComic() {
         var scrollSuccess = scrollToBottom();
 
         // 检查滚动结果
-        if (!scrollSuccess || !appConfig.readComic.running || appConfig.readComic.shouldExit) {
-            logger.info("滚动失败或收到停止/退出命令，中断阅读");
-            break;
-        }
+        if (!checkControlStatus()) break;
+        // if (!scrollSuccess || !appConfig.readComic.running || appConfig.readComic.shouldExit) {
+        //     logger.info("滚动失败或收到停止/退出命令，中断阅读");
+        //     break;
+        // }
 
         sleep(scrollParams.duration);
         utils.performGC();
@@ -1054,10 +1017,10 @@ function ComicDetailToWatchComic() {
             if (!clickNext()) {
                 logger.info("点击下一话失败");
                 break;
-            }
+            }   
             currentChapter++;
             // 等待加载新章节
-            waitWithCountdown(5000, "正在加载下一话")
+            // waitWithCountdown(scrollParams.comicLoading, "正在加载下一话")
 
         } else {
             toast("自动下一章已禁用，请手动进入下一章");
@@ -1072,183 +1035,24 @@ function ComicDetailToWatchComic() {
 //! 主函数运行 从 打开app 开始 到 滚动观看漫画
 function main() {
     // while (appConfig.readComic.running && !appConfig.readComic.shouldExit) {
-        if (safeStartApp(packageName)) {
-            // app 开启之后需要检测是否在首页
-            // chapterAndStartLook();
+    if (safeStartApp(packageName)) {
+        // app 开启之后需要检测是否在首页
+        // chapterAndStartLook();
 
-            if (!checkHomePage()) return true;
+        if (!checkHomePage()) return true;
 
-            // 检测用户是否登录
-            if (!checkLogin()) return ;
+        // 检测用户是否登录
+        if (!checkLogin()) return;
 
-            //点击今日更新 进行观看动漫
-            if (!startWatchComic()) return;
-            // break;
+        //点击今日更新 进行观看动漫
+        if (!startWatchComic()) return;
+        // break;
 
-            controlGridClick();
-        }
+        controlGridClick();
+    }
     // }
 }
 main()
 //! 主程序开始执行
-// try {
-//     // 确保无障碍服务正常运行
-//     if (!ensureAccessibilityService()) {
-//         throw new Error("无障碍服务未正常运行，脚本终止");
-//     }
-
-//     // 主循环 - 当需要停止时会跳出此循环
-//     while (appConfig.readComic.running && !appConfig.readComic.shouldExit) {
-//         // 启动应用
-//         var duration = appConfig.scrollParams["0"]
-//         if (safeStartApp(packageName)) {
-//             // checkHomePage(2);
-//             example();
-
-//             break;
-//             // 检查控制状态
-//             if (!checkControlStatus()) break;
-//             // 给应用足够时间启动,阅读
-//             sleep(200);
-//             break;
-//             // 检查登录状态
-//             if (!checkLogin()) break;
-
-//             // 检查控制状态
-//             if (!checkControlStatus()) break;
-
-//             sleep(duration.duration);
-
-//             // 进入章节页面
-//             var isStartReadComic = startWatchComic();
-//             if (!isStartReadComic) {
-//                 logger.info("未开始阅读,脚本终止");
-//                 break;
-//             }
-//             break;
-
-//             // 检查控制状态
-//             if (!checkControlStatus()) break;
-
-//             sleep(duration.duration);
-
-//             // 点击观看漫画
-//             var newChapter = chapterAndStartLook();
-//             if (newChapter === 0) {
-//                 logger.info("未获取到章节信息,使用默认章节信息");
-//                 newChapter = 5; // 默认章节数
-//             }
-
-//             var currentChapter = 1;
-
-//             // 章节阅读循环
-//             while (currentChapter <= newChapter && appConfig.readComic.running && !appConfig.readComic.shouldExit) {
-//                 // 检查控制状态
-//                 if (!checkControlStatus()) break;
-
-//                 toast("开始阅读第" + currentChapter + "话");
-
-//                 // 等待加载并在页面中提示
-//                 if (!waitWithCountdown(20, "正在加载第" + currentChapter + "话")) {
-//                     break; // 如果等待被中断，则跳出循环
-//                 }
-
-//                 // 检查控制状态
-//                 if (!checkControlStatus()) break;
-
-//                 // 滚动页面
-//                 var scrollSuccess = scrollToBottom();
-
-//                 // 检查滚动结果
-//                 if (!scrollSuccess || !appConfig.readComic.running || appConfig.readComic.shouldExit) {
-//                     logger.info("滚动失败或收到停止/退出命令，中断阅读");
-//                     break;
-//                 }
-
-//                 sleep(duration.duration);
-//                 utils.performGC();
-
-//                 // 根据设置决定是否自动进入下一章
-//                 if (appConfig.autoNextChapter) {
-//                     if (!clickNext()) {
-//                         logger.info("点击下一话失败");
-//                         break;
-//                     }
-//                     currentChapter++;
-//                     // 等待加载新章节
-//                     if (!waitWithCountdown(5, "正在加载下一话")) {
-//                         break;
-//                     }
-//                 } else {
-//                     toast("自动下一章已禁用，请手动进入下一章");
-//                     // 等待用户手动操作
-//                     if (!waitWithCountdown(30, "等待用户手动操作")) {
-//                         break;
-//                     }
-//                     break; // 退出循环，不再自动阅读下一章
-//                 }
-//             }
-
-//             // 如果因为控制命令而退出，这里会执行
-//             if (!appConfig.readComic.running || appConfig.readComic.shouldExit) {
-//                 logger.info("因控制命令退出章节阅读循环");
-//                 break;
-//             }
-
-//             logger.info("章节阅读完成");
-//             toast("章节阅读完成");
-
-//             // 如果需要循环读取，可以在这里添加代码
-//             // 例如：重新开始或者退出
-//             if (appConfig.readComic.isPaused) {
-//                 // 如果是暂停状态，则重新开始
-//                 logger.info("检测到暂停状态，将重新开始");
-//                 appConfig.readComic.isPaused = false;
-//                 continue; // 重新开始
-//             } else {
-//                 // 否则结束循环
-//                 break;
-//             }
-
-//         } else {
-//             logger.error("应用启动失败，请手动启动应用后重试");
-//             break;
-//         }
-//     }
-
-//     logger.info("主循环已退出");
-
-//     // 如果是因为暂停而退出的，可以在这里处理重启逻辑
-//     if (appConfig.readComic.isPaused && appConfig.readComic.running && !appConfig.readComic.shouldExit) {
-//         logger.info("检测到暂停状态，等待继续命令");
-//         toast("已暂停，等待继续...");
-
-//         // 等待继续命令
-//         while (appConfig.readComic.isPaused && appConfig.readComic.running && !appConfig.readComic.shouldExit) {
-//             sleep(500);
-//         }
-
-//         // 如果收到继续命令且不是停止或退出
-//         if (appConfig.readComic.running && !appConfig.readComic.shouldExit) {
-//             logger.info("收到继续命令，将重新开始脚本");
-//             toast("继续执行，重新开始...");
-
-//             // 重新执行脚本
-//             engines.execScriptFile("./rhino.js", {
-//                 arguments: {
-//                     action: "restart",
-//                     config: appConfig
-//                 }
-//             });
-
-//             // 退出当前脚本实例
-//             exit();
-//         }
-//     }
-
-// } catch (e) {
-//     logger.error("执行过程中出错: " + e);
-//     toast("执行出错: " + e.message);
-// } 
 
 logger.info("rhino脚本执行完成");

@@ -105,15 +105,15 @@ $ui.layout(
                                     <checkbox id="autoScroll" text="自动滚动" checked={appConfig.autoScroll} />
                                     <checkbox id="autoNextChapter" text="自动下一章" checked={appConfig.autoNextChapter} />
                                     <text text="流程速度" textSize="16sp" />
-                                    <spinner id="scrollSpeed" entries="慢速|中速|快速"/>
-                                    
-                                    <text text="权限设置" textSize="16sp" marginTop="16"/>
+                                    <spinner id="scrollSpeed" entries="慢速|中速|快速" />
+
+                                    <text text="权限设置" textSize="16sp" marginTop="16" />
                                     <checkbox id="accessibilityPermission" text="无障碍服务" checked={appConfig.permissions.accessibility} />
                                     <checkbox id="floatingWindowPermission" text="悬浮窗" checked={appConfig.permissions.floatingWindow} />
                                     <checkbox id="screenCapturePermission" text="截图权限" checked={appConfig.permissions.screenCapture} />
                                     <checkbox id="storagePermission" text="存储权限" checked={appConfig.permissions.storage} />
-                                    
-                                    <text text="阅读历史" textSize="16sp" marginTop="16"/>
+
+                                    <text text="阅读历史" textSize="16sp" marginTop="16" />
                                     <checkbox id="enableHistory" text="启用阅读历史" checked={appConfig.readHistory.enabled} />
                                     <checkbox id="autoCleanHistory" text="自动清理历史记录" checked={appConfig.readHistory.autoClean} />
                                 </vertical>
@@ -168,30 +168,30 @@ $ui.startButton.on("click", () => {
     appConfig.activationKey = $ui.activationCode.getText().toString();
     appConfig.autoScroll = $ui.autoScroll.isChecked();
     appConfig.autoNextChapter = $ui.autoNextChapter.isChecked();
-    
+
     // 保存权限设置
     appConfig.permissions.accessibility = $ui.accessibilityPermission.isChecked();
     appConfig.permissions.floatingWindow = $ui.floatingWindowPermission.isChecked();
     appConfig.permissions.screenCapture = $ui.screenCapturePermission.isChecked();
     appConfig.permissions.storage = $ui.storagePermission.isChecked();
-    
+
     // 保存阅读历史设置
     appConfig.readHistory.enabled = $ui.enableHistory.isChecked();
     appConfig.readHistory.autoClean = $ui.autoCleanHistory.isChecked();
 
     // 检查必要的权限
     let missingPermissions = [];
-    
+
     // 检查无障碍服务
     if (appConfig.permissions.accessibility && !auto.service) {
         missingPermissions.push("无障碍服务");
     }
-    
+
     // 检查悬浮窗权限
     if (appConfig.permissions.floatingWindow && !utils.checkFloatyPermission()) {
         missingPermissions.push("悬浮窗");
     }
-    
+
     // 检查存储权限
     if (appConfig.permissions.storage && !utils.hasStoragePermission()) {
         missingPermissions.push("存储");
@@ -574,7 +574,7 @@ function toggleControlPanel() {
 
                 // 切换暂停状态
                 isPaused = !isPaused;
-                console.log("切换暂停状态",isPaused);
+                console.log("切换暂停状态", isPaused);
 
                 // 更新配置
                 appConfig.update({
@@ -597,7 +597,7 @@ function toggleControlPanel() {
         floatyWindow.settingsButton.setOnClickListener(function (view) {
             // 收起控制面板
             toggleControlPanel();
-            
+
             // 暂停程序
             appConfig.update({
                 readComic: {
@@ -652,7 +652,7 @@ function toggleControlPanel() {
 
                         // 停止Rhino脚本执行引擎
                         if (rhinoEngine) {
-                            engines.stopAll(); 
+                            engines.stopAll();
                         }
 
                         // 退出脚本
