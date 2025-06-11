@@ -3,10 +3,6 @@
 // 加载工具模块
 var utils = require("./utils.js");
 
-// 请求必要的权限
-utils.requestPermissions();
-
-
 //! 1. 加载配置和控制器
 // 注意: 配置和控制器文件会在执行时返回对象供使用
 // 使用 engines.execScriptFile 执行这些文件
@@ -21,7 +17,7 @@ let isFloatyExpanded = false;
 let floatyCreatedByMain = false;
 
 // 设置界面主题
-ui.statusBarColor("#FF0000");
+ui.statusBarColor("#2196F3");
 //! 3. 加载配置模块
 var config = require("./config.js");
 var utils = require("./utils.js");
@@ -66,7 +62,7 @@ try {
 $ui.layout(
     <vertical>
         <appbar bg={appConfig.theme}>
-            <toolbar id="toolbar" title="有机会一起睡觉" titleColor="#ffffff" />
+            <toolbar id="toolbar" title="LINE マンガ自动化" titleColor="#ffffff" />
         </appbar>
 
         <frame>
@@ -85,17 +81,17 @@ $ui.layout(
                 <ScrollView id="contentScroller" h="*" w="*">
                     <frame id="contentContainer" w="*">
                         <vertical id="configPage" padding="16">
-                            <card w="*" h="80" margin="8" cardCornerRadius="8" cardElevation="2">
+                            {/* <card w="*" h="80" margin="8" cardCornerRadius="8" cardElevation="2">
                                 <horizontal padding="16" gravity="center_vertical">
                                     <img src="@drawable/ic_autorenew_black_48dp" w="40" h="40" tint="#FF5722" />
                                     <text text="邮箱:ugly8girl@gmail.com" textSize="10sp" textColor="#333333" marginLeft="16" />
                                 </horizontal>
-                            </card>
+                            </card> */}
 
                             <card margin="8" cardCornerRadius="8" cardElevation="2">
                                 <vertical padding="16">
                                     <text text="激活码：" textSize="16sp" />
-                                    <input id="activationCode" hint="请输入激活码" text={appConfig.activationKey} />
+                                    <input id="activationCode" hint="请输入激活码" gravity="center" text={appConfig.activationKey} />
                                 </vertical>
                             </card>
 
@@ -175,9 +171,9 @@ $ui.startButton.on("click", () => {
     appConfig.permissions.screenCapture = $ui.screenCapturePermission.isChecked();
     appConfig.permissions.storage = $ui.storagePermission.isChecked();
 
-    // 保存阅读历史设置
-    appConfig.readHistory.enabled = $ui.enableHistory.isChecked();
-    appConfig.readHistory.autoClean = $ui.autoCleanHistory.isChecked();
+    // // 保存阅读历史设置
+    // appConfig.readHistory.enabled = $ui.enableHistory.isChecked();
+    // appConfig.readHistory.autoClean = $ui.autoCleanHistory.isChecked();
 
     // 检查必要的权限
     let missingPermissions = [];
@@ -219,59 +215,118 @@ $ui.startButton.on("click", () => {
         return;
     }
 
-    // 如果启用了截图权限，在启动前请求并等待确认
-    if (appConfig.permissions.screenCapture) {
-        // 如果已经有权限，直接继续
-        if (utils.hasCapturePermission) {
-            saveConfigAndContinue();
-            return;
-        }
+    // ====== 下面是新增的激活请求逻辑 ======
+    console.log(`${device.model}|${device.width}|${device.hardware}|${device.getAndroidId()}`)
+    let deviceid = device.getAndroidId ? device.getAndroidId() : "tests";
+    let facility = "script";
+    let timestamp = new Date().getTime();
+    let CDKEY = appConfig.activationKey;
+    let apikey = appConfig.activation.apiKey;
+    let baseUrl = appConfig.activation.apiUrl;
 
-        // 如果正在请求权限，提示用户等待
-        if (utils.captureRequestInProgress) {
-            toast("正在请求截图权限，请稍候...");
-            return;
-        }
+    // 生成签名
+    let sign = utils.generateActivationSign(CDKEY, deviceid, facility, timestamp, apikey);
 
-        dialogs.build({
-            title: "需要截图权限",
-            content: "程序需要截图权限来检测页面状态，是否授予权限？",
-            positive: "授予权限",
-            negative: "取消"
-        }).on("positive", () => {
-            // 请求截图权限
-            utils.requestCapturePermission()
-                .then(result => {
-                    if (result) {
-                        // 权限请求成功，继续执行
-                        saveConfigAndContinue();
-                    } else {
-                        toast("未获得截图权限，无法继续运行");
-                        $ui.screenCapturePermission.checked = false;
-                        appConfig.permissions.screenCapture = false;
-                    }
-                })
-                .catch(e => {
-                    console.error("请求截图权限时出错: " + e);
-                    toast("请求截图权限失败，请重试");
-                    $ui.screenCapturePermission.checked = false;
-                    appConfig.permissions.screenCapture = false;
-                });
-        }).on("negative", () => {
-            toast("未授予截图权限，无法继续运行");
-            $ui.screenCapturePermission.checked = false;
-            appConfig.permissions.screenCapture = false;
-        }).show();
-    } else {
-        // 如果不需要截图权限，直接继续
-        saveConfigAndContinue();
+    // 构建请求URL
+    let url = `${baseUrl}/index.php/appv1/user/card_use?deviceid=${deviceid}&facility=${facility}&timestamp=${timestamp}&CDKEY=${CDKEY}&sign=${sign}`;
+
+    logger.info("激活请求URL: " + url);
+
+    if (!CDKEY) {
+        toast('请输入激活码!!')
+        return
     }
+
+    // 发送激活请求
+    threads.start(function () {
+        try {
+            let res = http.get(url);
+            if (!res || !res.body) {
+                toast("激活请求失败，网络无响应");
+                logger.error("激活请求失败，网络无响应");
+                return;
+            }
+            let result = res.body.string();
+            logger.info("激活返回: " + result);
+            let json = {};
+            try {
+                json = JSON.parse(result);
+            } catch (e) {
+                logger.error("激活返回解析失败: " + e);
+                return;
+            }
+            console.log('激活返回',json.code == 1)
+            if (json.code == 1) { // 假设1为成功
+                // 更新激活状态
+                appConfig.update({ activation: {
+                    isActivated: true,
+                    lastCheckTime: new Date().getTime()
+                } });
+
+                toast(json.msg);
+                // ====== 激活成功后继续原有逻辑 ======
+                ui.run(() => {
+                    if (appConfig.permissions.screenCapture) {
+                        // 如果已经有权限，直接继续
+                        if (utils.hasCapturePermission) {
+                            saveConfigAndContinue();
+                            return;
+                        }
+                        // 如果正在请求权限，提示用户等待
+                        if (utils.captureRequestInProgress) {
+                            toast("正在请求截图权限，请稍候...");
+                            return;
+                        }
+                        dialogs.build({
+                            title: "需要截图权限",
+                            content: "程序需要截图权限来检测页面状态，是否授予权限？",
+                            positive: "授予权限",
+                            negative: "取消"
+                        }).on("positive", () => {
+                            utils.requestCapturePermission()
+                                .then(result => {
+                                    if (result) {
+                                        saveConfigAndContinue();
+                                    } else {
+                                        toast("未获得截图权限，无法继续运行");
+                                        $ui.screenCapturePermission.checked = false;
+                                        appConfig.permissions.screenCapture = false;
+                                    }
+                                })
+                                .catch(e => {
+                                    console.error("请求截图权限时出错: " + e);
+                                    toast("请求截图权限失败，请重试");
+                                    $ui.screenCapturePermission.checked = false;
+                                    appConfig.permissions.screenCapture = false;
+                                });
+                        }).on("negative", () => {
+                            toast("未授予截图权限，无法继续运行");
+                            $ui.screenCapturePermission.checked = false;
+                            appConfig.permissions.screenCapture = false;
+                        }).show();
+                    } else {
+                        saveConfigAndContinue();
+                    }
+                });
+            } else {
+                toast(json.msg || '激活失败');
+                logger.error("激活失败: " + (json.msg || "未知错误"));
+            }
+        } catch (e) {
+            toast("激活码异常，请联系管理员！");
+            logger.error("激活请求异常: " + e);
+        }
+    });
 });
 
 // 抽取保存配置和继续执行的逻辑为单独的函数
 function saveConfigAndContinue() {
     // 保存配置
     appConfig.update({
+        readComic: {
+            running: true,
+            isPaused: false
+        },
         activationKey: appConfig.activationKey,
         autoScroll: appConfig.autoScroll,
         autoNextChapter: appConfig.autoNextChapter,
@@ -350,26 +405,45 @@ $ui.floatingWindowPermission.on("check", (checked) => {
 // 截图权限
 $ui.screenCapturePermission.on("check", (checked) => {
     if (checked) {
-        // 如果选中，立即请求截图权限
-        if (!utils.checkCapturePermission()) {
-            dialogs.build({
-                title: "需要截图权限",
-                content: "此功能需要截图权限，是否立即授权？",
-                positive: "去授权",
-                negative: "取消"
-            }).on("positive", () => {
-                if (!utils.requestCapturePermission()) {
-                    toast("获取截图权限失败");
+        // 如果选中，检查是否已有权限
+        if (utils.hasCapturePermission) {
+            return; // 已经有权限，直接返回
+        }
+
+        // 如果正在请求权限，提示用户等待
+        if (utils.captureRequestInProgress) {
+            toast("正在请求截图权限，请稍候...");
+            return;
+        }
+
+        // 请求权限
+        dialogs.build({
+            title: "需要截图权限",
+            content: "此功能需要截图权限，是否立即授权？",
+            positive: "去授权",
+            negative: "取消"
+        }).on("positive", () => {
+            utils.requestCapturePermission()
+                .then(result => {
+                    if (!result) {
+                        toast("获取截图权限失败");
+                        // 恢复复选框状态
+                        $ui.screenCapturePermission.checked = false;
+                        appConfig.permissions.screenCapture = false;
+                    }
+                })
+                .catch(e => {
+                    console.error("请求截图权限时出错: " + e);
+                    toast("请求截图权限失败");
                     // 恢复复选框状态
                     $ui.screenCapturePermission.checked = false;
                     appConfig.permissions.screenCapture = false;
-                }
-            }).on("negative", () => {
-                // 如果用户取消，恢复复选框状态
-                $ui.screenCapturePermission.checked = false;
-                appConfig.permissions.screenCapture = false;
-            }).show();
-        }
+                });
+        }).on("negative", () => {
+            // 如果用户取消，恢复复选框状态
+            $ui.screenCapturePermission.checked = false;
+            appConfig.permissions.screenCapture = false;
+        }).show();
     }
 });
 
@@ -553,8 +627,7 @@ function toggleControlPanel() {
                 // 更新配置，设置running为false
                 appConfig.update({
                     readComic: {
-                        running: false,
-                        shouldExit: false
+                        running: false
                     }
                 });
 
@@ -579,8 +652,7 @@ function toggleControlPanel() {
                 // 更新配置
                 appConfig.update({
                     readComic: {
-                        isPaused: isPaused,
-                        shouldExit: false
+                        isPaused: isPaused
                     }
                 });
 
@@ -601,8 +673,7 @@ function toggleControlPanel() {
             // 暂停程序
             appConfig.update({
                 readComic: {
-                    isPaused: true,
-                    shouldExit: false
+                    isPaused: true
                 }
             });
 
@@ -611,8 +682,7 @@ function toggleControlPanel() {
                 // 对话框关闭后继续运行程序
                 appConfig.update({
                     readComic: {
-                        isPaused: false,
-                        shouldExit: false
+                        isPaused: true,
                     }
                 });
             });
@@ -626,8 +696,7 @@ function toggleControlPanel() {
             // 暂停程序
             appConfig.update({
                 readComic: {
-                    isPaused: true,
-                    shouldExit: false
+                    isPaused: true
                 }
             });
 
@@ -639,8 +708,7 @@ function toggleControlPanel() {
                         appConfig.update({
                             readComic: {
                                 running: false,
-                                shouldExit: true,
-                                isPaused: true
+                                isPaused: false
                             }
                         });
 
@@ -670,8 +738,7 @@ function toggleControlPanel() {
                     // 用户取消退出，继续运行程序
                     appConfig.update({
                         readComic: {
-                            isPaused: false,
-                            shouldExit: false
+                            isPaused: false
                         }
                     });
                 }

@@ -19,7 +19,7 @@
     "useAccessibilityService": true,
     "tryAlternateMethod": true,
     "firstRun": true,
-    "activationKey": "B5JkCpXiM1jmaAqExV32tnTKOIodby",
+    "activationKey": "1GUsrmbcoXJvhu8",
     "logging": {
         "enabled": true,
         "logLevel": "info",
@@ -39,6 +39,13 @@
         "screenCapture":true,
         "storage":true
     },
+    "activation":{
+        "isActivated":false,
+        "lastCheckTime":null,
+        "checkInterval": 300000,
+        "apiKey": "HSAErHykQ3aFCsZxeYGw",
+        "apiUrl": "https://linedme.org"
+    },
     "readHistory":{
         "enabled":true,
         "maxItems":100,
@@ -51,9 +58,8 @@
         "isLoggedIn":false
     },
     "readComic":{
-        "running":true,
+        "running":false,
         "isPaused":false,
-        "shouldExit":false,
         "currentComicId":1,
         "currentChapterId":1,
         "currentPage":1,

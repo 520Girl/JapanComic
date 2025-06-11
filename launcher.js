@@ -8,20 +8,20 @@
 // 设置UI
 ui.layout(
     <vertical padding="16">
-        <text textSize="24sp" textColor="#FF5722" text="应用启动器" gravity="center" margin="0 20"/>
-        <text id="statusText" textSize="16sp" text="正在检查环境..." margin="0 20"/>
-        <progressbar id="progressBar" style="@android:style/Widget.ProgressBar.Horizontal" progress="0"/>
-        
+        <text textSize="24sp" textColor="#FF5722" text="应用启动器" gravity="center" margin="0 20" />
+        <text id="statusText" textSize="16sp" text="正在检查环境..." margin="0 20" />
+        <progressbar id="progressBar" style="@android:style/Widget.ProgressBar.Horizontal" progress="0" />
+
         <vertical id="actionPanel" margin="0 30" visibility="gone">
-            <button id="fixBtn" text="修复无障碍服务" style="Widget.AppCompat.Button.Colored" margin="0 10"/>
-            <button id="startBtn" text="启动应用" style="Widget.AppCompat.Button.Colored" margin="0 10"/>
-            <button id="settingsBtn" text="权限设置" style="Widget.AppCompat.Button.Colored" margin="0 10"/>
+            <button id="fixBtn" text="修复无障碍服务" style="Widget.AppCompat.Button.Colored" margin="0 10" />
+            <button id="startBtn" text="启动应用" style="Widget.AppCompat.Button.Colored" margin="0 10" />
+            <button id="settingsBtn" text="权限设置" style="Widget.AppCompat.Button.Colored" margin="0 10" />
         </vertical>
-        
+
         <vertical id="logPanel" margin="0 10">
-            <text textSize="14sp" text="环境检查日志:" textColor="#666666"/>
+            <text textSize="14sp" text="环境检查日志:" textColor="#666666" />
             <scroll height="200">
-                <text id="logText" textSize="12sp" textColor="#333333" margin="0 5"/>
+                <text id="logText" textSize="12sp" textColor="#333333" margin="0 5" />
             </scroll>
         </vertical>
     </vertical>
@@ -60,16 +60,55 @@ var checkResults = {
 function startMainApp() {
     log("准备启动主程序...");
     updateStatus("启动中...", 100);
-    
+
+    // 确保无障碍服务正常运行
+    if (!auto.service) {
+        log("无障碍服务未启用，尝试启用...");
+        auto.waitFor();
+        sleep(3000); // 等待服务启动
+    }
+
+    // 验证无障碍服务是否真正运行
+    let serviceRunning = false;
+    for (let i = 0; i < 3; i++) {
+        try {
+            let testResult = id("test_nonexistent_id").exists();
+            serviceRunning = true;
+            break;
+        } catch (e) {
+            if (e.toString().indexOf("无障碍服务已启用但并未运行") != -1) {
+                log("等待无障碍服务完全启动...");
+                sleep(2000);
+                continue;
+            }
+        }
+    }
+
+    if (!serviceRunning) {
+        log("无障碍服务未正常运行，请手动检查");
+        updateStatus("无障碍服务未正常运行", 0);
+        ui.actionPanel.setVisibility(android.view.View.VISIBLE);
+        return;
+    }
+
     setTimeout(() => {
         try {
+            // 先启动主程序
             engines.execScriptFile("./main.js");
             log("已启动主程序");
+
+            // 等待主程序初始化
+            sleep(2000);
+
+            // 再启动 rhino 脚本
+            engines.execScriptFile("./rhino.js");
+            log("已启动 rhino 脚本");
+
             setTimeout(() => {
                 ui.finish();
             }, 1000);
         } catch (e) {
-            log("启动主程序失败: " + e);
+            log("启动程序失败: " + e);
             updateStatus("启动失败", 0);
             ui.actionPanel.setVisibility(android.view.View.VISIBLE);
         }
@@ -109,7 +148,7 @@ function checkStoragePermission() {
         try {
             let hasPermission = files.isDir(files.getSdcardPath());
             log("存储权限: " + (hasPermission ? "已授权" : "未授权"));
-            
+
             if (!hasPermission) {
                 // 请求权限
                 log("请求存储权限...");
@@ -124,7 +163,7 @@ function checkStoragePermission() {
             } else {
                 checkResults.storage = true;
             }
-            
+
             resolve();
         } catch (e) {
             log("检查存储权限出错: " + e);
@@ -159,7 +198,7 @@ function checkAccessibilityService() {
                     }
                 }
             }
-            
+
             resolve();
         } catch (e) {
             log("检查无障碍服务出错: " + e);
@@ -179,10 +218,10 @@ function checkFloatyPermission() {
             } else {
                 hasPermission = true; // 旧版Android默认允许
             }
-            
+
             log("悬浮窗权限: " + (hasPermission ? "已授权" : "未授权"));
             checkResults.floaty = hasPermission;
-            
+
             resolve();
         } catch (e) {
             log("检查悬浮窗权限出错: " + e);
@@ -203,7 +242,7 @@ function collectDeviceInfo() {
                 release: device.release,
                 buildId: device.buildId
             };
-            
+
             log("设备信息: " + JSON.stringify(checkResults.devInfo));
             resolve();
         } catch (e) {
@@ -219,14 +258,14 @@ function evaluateResults() {
     log("存储权限: " + (checkResults.storage ? "通过" : "未通过"));
     log("无障碍服务: " + (checkResults.accessibility ? "通过" : "未通过"));
     log("悬浮窗权限: " + (checkResults.floaty ? "通过" : "未通过"));
-    
+
     // 显示操作面板
     ui.actionPanel.setVisibility(android.view.View.VISIBLE);
-    
+
     if (checkResults.storage && checkResults.accessibility && checkResults.floaty) {
         updateStatus("环境检查通过，可以启动", 100);
         log("所有检查通过，可以启动主程序");
-        
+
         // 自动启动主程序
         setTimeout(startMainApp, 1500);
     } else {
@@ -245,7 +284,7 @@ function evaluateResults() {
 // 尝试修复无障碍服务
 function fixAccessibilityService() {
     log("尝试修复无障碍服务问题...");
-    
+
     if (!auto.service) {
         // 无障碍服务未启用，尝试启用
         log("无障碍服务未启用，尝试启用...");
@@ -259,7 +298,7 @@ function fixAccessibilityService() {
             sleep(1000);
             auto.service = true;
             sleep(2000);
-            
+
             // 再次检查
             try {
                 let testResult = id("test_nonexistent_id").exists();
@@ -270,7 +309,7 @@ function fixAccessibilityService() {
             } catch (e) {
                 if (e.toString().indexOf("无障碍服务已启用但并未运行") != -1) {
                     log("重启无障碍服务失败，请尝试使用'无障碍服务检查工具'...");
-                    
+
                     // 提示用户
                     dialogs.confirm("重启无障碍服务失败", "是否运行专门的无障碍服务检查工具？")
                         .then(confirmed => {
@@ -303,7 +342,7 @@ function openSystemSettings() {
         "运行无障碍检查工具",
         "取消"
     ];
-    
+
     dialogs.select("请选择要打开的设置", items)
         .then(i => {
             switch (i) {

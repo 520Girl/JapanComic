@@ -21,6 +21,15 @@ var defaultConfig = {
         "1": { duration: 1000, comicLoading: 10000, appStart: 4000, interval: 800 }, // 中速
         "2": { duration: 500, comicLoading: 5000, appStart: 2000, interval: 200 }   // 快速
     },
+    //激活码配置
+    activation: {
+        isActivated: false,
+        lastCheckTime: null, // 上次检查时间
+        checkInterval: 5 * 60 * 1000, // 检查间隔，默认5分钟
+        apiKey: "HSAErHykQ3aFCsZxeYGw",
+        // apiUrl: "http://192.168.31.47:8088"
+        apiUrl: "https://linedme.org"
+    },
     // UI设置
     floatyOpacity: 0.8,         // 悬浮窗透明度
     floatyTheme: "#2196F3",        // 悬浮窗主题 (dark/light)
@@ -36,7 +45,7 @@ var defaultConfig = {
 
     // 应用设置
     firstRun: true,             // 首次运行标志
-    activationKey: "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiIsImFkbWluIjp0cnVlfQ.HyGqUXiIrB2gcSs7o-7ejNFwF2hmgSEMQ-KVMMliltwXkYOh_Mib0GX2kSJZUdqyPrtpaMEIhEY6t24x7MJDNQ",          // 激活码
+    activationKey: "1GUsrmbcoXJvhu8",          // 激活码
 
     // 权限设置
     permissions: {
@@ -74,9 +83,9 @@ var defaultConfig = {
     },
     // 阅读漫画设置
     readComic: {
-        running: true, // 是否正在阅读
-        isPaused: false, // 是否暂停
-        shouldExit: false, // 是否退出
+        running: false,    // 控制是否在阅读（停止按钮控制），停止从头开始
+        isPaused: false,   // 控制是否暂停（暂停按钮控制） ，停止可继续
+        // shouldExit: false,  // 控制是否退出程序（退出按钮控制），true 为退出，false 为不退出
         currentComicId: 1, // 当前漫画ID
         currentChapterId: 1, // 当前章节ID
         currentPage: 1, // 当前页码
