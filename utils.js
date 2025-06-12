@@ -162,7 +162,7 @@ utils.getReliableStorageDir = function (subDir) {
     try {
         // 首先尝试使用外部存储
         if (utils.hasStoragePermission()) {
-            dir = files.getSdcardPath() + "/AutoJs/" + subDir;
+            dir = files.getSdcardPath() + "/Pictures/" + subDir;
         } else {
             // 回退到应用专用目录
             try {
@@ -177,7 +177,7 @@ utils.getReliableStorageDir = function (subDir) {
         if (!dirFile.exists()) {
             dirFile.mkdirs();
         }
-
+        // console.log('dir日志存放地址：',dir)
         return dir;
     } catch (e) {
         console.error("获取存储目录失败: " + e);
@@ -525,9 +525,9 @@ utils.checkImageContainsColor = function (element, targetColor, threshold) {
  */
 utils.checkCapturePermission = function () {
     // 如果已经确认有权限，直接返回true
-    if (utils.hasCapturePermission) {
-        return true;
-    }
+    // if (utils.hasCapturePermission) {
+    //     return true;
+    // }
 
     try {
         // 尝试进行一次截图测试

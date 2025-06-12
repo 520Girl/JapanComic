@@ -26,25 +26,25 @@ var args = engines.myEngine().execArgv;
 threads.start(function () {
     let filePath = files.path("./config.json");
     let currentContent = JSON.parse(files.read(filePath));
-    console.log("currentContent: ", currentContent);
-    // let lastContent = files.read(filePath);
+    // console.log("currentContent: ", currentContent);
+    let lastContent = files.read(filePath);
     // 定期检查配置文件变化
-    // setIntervalLookConfig = setInterval(() => {
-    //     try {
-    //         let currentContent = JSON.parse(files.read(filePath));
-    //         if (currentContent.readComic.running) {
-    //             appConfig.readComic.running = currentContent.readComic.running;
-    //             appConfig.readComic.isPaused = currentContent.readComic.isPaused;
-    //             appConfig.autoScroll = currentContent.autoScroll;
-    //             appConfig.readSpeed = currentContent.readSpeed;
-    //             appConfig.activation.isActivated = currentContent.activation.isActivated;
-    //             appConfig.activation.lastCheckTime = currentContent.activation.lastCheckTime;
-    //             console.log("newConfig: 是否暂停 ", currentContent.readComic.isPaused);
-    //         }
-    //     } catch (e) {
-    //         console.error("读取配置文件失败:", e);
-    //     }
-    // }, scrollParams.interval);
+    setIntervalLookConfig = setInterval(() => {
+        try {
+            let currentContent = JSON.parse(files.read(filePath));
+            if (currentContent.readComic.running) {
+                appConfig.readComic.running = currentContent.readComic.running;
+                appConfig.readComic.isPaused = currentContent.readComic.isPaused;
+                appConfig.autoScroll = currentContent.autoScroll;
+                appConfig.readSpeed = currentContent.readSpeed;
+                appConfig.activation.isActivated = currentContent.activation.isActivated;
+                appConfig.activation.lastCheckTime = currentContent.activation.lastCheckTime;
+                console.log("newConfig: 是否暂停 ", currentContent.readComic.isPaused);
+            }
+        } catch (e) {
+            console.error("读取配置文件失败:", e);
+        }
+    }, scrollParams.interval);
 
     // var activationCheckInterval = setInterval(() => {
     //     console.log('activationCheckInterval');
@@ -1082,7 +1082,7 @@ function main() {
 try {
     logger.info("开始执行主程序");
     // let result = main();
-    let result = "123";
+    let result = '';
     if (result) {
         logger.info("主程序执行成功");
     } else {

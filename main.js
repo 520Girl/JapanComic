@@ -3,7 +3,7 @@
 // 加载工具模块
 var utils = require("./utils.js");
 var launcher = require('./launcher.js');
-
+var loggerFile = require('./logger.js');
 //! 1. 加载配置和控制器
 // 注意: 配置和控制器文件会在执行时返回对象供使用
 // 使用 engines.execScriptFile 执行这些文件
@@ -16,16 +16,16 @@ let isFloatyExpanded = false;
 // 在文件顶部添加一个全局变量来跟踪悬浮窗的创建者
 let floatyCreatedByMain = false;
 
-// 设置界面主题
-ui.statusBarColor("#2196F3");
+
 //! 3. 加载配置模块
 var config = require("./config.js");
 appConfig = config.appConfig;
 appConfig.update = config.updateConfig;
 appConfig.resetConfig = config.resetConfig;
-
+// 设置界面主题
+ui.statusBarColor(appConfig.floatyTheme);
 //! 2. 初始化日志系统
-var logger = require('./logger.js').initLogger('main', appConfig);
+var logger = loggerFile.initLogger('main', appConfig);
 
 
 //! 6. 使用 AutoJS 兼容的错误处理，当发生 未被try catch 的异常时，会触发这个事件
@@ -60,7 +60,7 @@ try {
 //! 7. 开始创建ui 和执行ui的事件
 $ui.layout(
     <vertical>
-        <appbar bg={appConfig.theme}>
+        <appbar bg="#00dc64">
             <toolbar id="toolbar" title="LINE マンガ自动化" titleColor="#ffffff" />
         </appbar>
 
@@ -68,11 +68,11 @@ $ui.layout(
             <vertical>
                 <horizontal bg={appConfig.theme} h="50">
                     <vertical layout_weight="1" id="configTabContainer">
-                        <button id="configTab" layout_weight="1" textSize="16sp" text="配置" textColor="#ffffff" bg={appConfig.theme} style="Widget.AppCompat.Button.Borderless" />
+                        <button id="configTab" layout_weight="1" textSize="16sp" text="个性配置" textColor="#ffffff" bg={appConfig.theme} style="Widget.AppCompat.Button.Borderless" />
                         <View id="configIndicator" h="3dp" w="*" bg="#ffffff" />
                     </vertical>
                     <vertical layout_weight="1" id="historyTabContainer">
-                        <button id="historyTab" layout_weight="1" textSize="16sp" text="设置" textColor="#cccccc" bg={appConfig.theme} style="Widget.AppCompat.Button.Borderless" />
+                        <button id="historyTab" layout_weight="1" textSize="16sp" text="系统设置" textColor="#cccccc" bg={appConfig.theme} style="Widget.AppCompat.Button.Borderless" />
                         <View id="historyIndicator" h="3dp" w="*" bg={appConfig.theme} />
                     </vertical>
                 </horizontal>
@@ -97,7 +97,7 @@ $ui.layout(
                             <card margin="8" cardCornerRadius="8" cardElevation="2">
                                 <vertical padding="16">
                                     <text text="阅读设置" textSize="16sp" />
-                                    <checkbox id="autoScroll" text="自动滚动" checked={appConfig.autoScroll} />
+                                    <checkbox tint={appConfig.theme} id="autoScroll" text="自动滚动" checked={appConfig.autoScroll} />
                                     <checkbox id="autoNextChapter" text="自动下一章" checked={appConfig.autoNextChapter} />
                                     <text text="流程速度" textSize="16sp" />
                                     <spinner id="scrollSpeed" entries="慢速|中速|快速" />
@@ -114,7 +114,11 @@ $ui.layout(
                         <vertical id="settingPage" padding="16" visibility="gone">
                             <card margin="8" cardCornerRadius="8" cardElevation="2">
                                 <vertical padding="16">
-                                    <text text="权限设置" textSize="10sp" textColor={appConfig.theme} gravity="left" padding="1" />
+                                    <horizontal gravity="center_vertical">
+                                        <img src="@android:drawable/ic_menu_edit" w="22" h="22" tint={appConfig.theme} marginRight="8" />
+                                        <text text="权限设置" textSize="10sp" textColor={appConfig.theme} gravity="left" padding="1" />
+                                    </horizontal>
+
                                     <checkbox id="accessibilityPermission" text="无障碍服务" checked={appConfig.permissions.accessibility} />
                                     <checkbox id="floatingWindowPermission" text="悬浮窗" checked={appConfig.permissions.floatingWindow} />
                                     <checkbox id="screenCapturePermission" text="截图权限" checked={appConfig.permissions.screenCapture} />
@@ -124,7 +128,10 @@ $ui.layout(
 
                             <card margin="8" cardCornerRadius="8" cardElevation="2">
                                 <vertical padding="16">
-                                    <text text="调试模式" textSize="10sp" textColor={appConfig.theme} gravity="left" padding="1" />
+                                    <horizontal gravity="center_vertical">
+                                        <img src="@drawable/ic_bug_report_black_48dp" w="24" h="24" tint={appConfig.theme} marginRight="8" />
+                                        <text text="调试模式" textSize="10sp" textColor={appConfig.theme} gravity="left" padding="1" />
+                                    </horizontal>
                                     <horizontal>
                                         <radiogroup orientation="horizontal">
                                             <radio id="debugModeOn" text="开启" checked={appConfig.debugMode} textSize="14sp" textColor="#333333" marginRight="16" />
@@ -215,7 +222,6 @@ function saveConfigAndContinue() {
 //初始化事件绑定
 function initEvents() {
     // 设置seekbar的初始值
-    logger.info("配置: " + JSON.stringify(appConfig));
     let initialProgress = Math.floor(Math.max(0, 300));
     $ui.speedSeekBar.setProgress(initialProgress);
 
@@ -244,8 +250,9 @@ function initEvents() {
     // 导出日志按钮点击事件
     $ui.exportLogsBtn.on("click", function () {
         try {
-            if (logger && logger.getLogArchive) {
-                let archivePath = logger.getLogArchive();
+            console.log('导出日志', loggerFile.getLogArchive())
+            if (loggerFile && loggerFile.getLogArchive) {
+                let archivePath = loggerFile.getLogArchive();
                 if (archivePath) {
                     toast("日志已导出到: " + archivePath);
                     // 询问用户是否要分享日志
@@ -264,7 +271,7 @@ function initEvents() {
                 toast("日志系统不可用");
             }
         } catch (e) {
-            logger.error("导出日志出错", e);
+            logger.error("导出日志出错" + e);
             toast("导出日志出错: " + e);
         }
     });
@@ -295,7 +302,7 @@ function initEvents() {
         $ui.configTab.attr("textColor", "#ffffff");
         $ui.historyTab.attr("textColor", "#cccccc");
         $ui.configIndicator.attr("bg", "#ffffff");
-        $ui.historyIndicator.attr("bg", "#2196F3");
+        $ui.historyIndicator.attr("bg", appConfig.theme);
     });
 
     $ui.historyTab.on("click", () => {
@@ -303,15 +310,17 @@ function initEvents() {
         $ui.settingPage.attr("visibility", "visible");
         $ui.configTab.attr("textColor", "#cccccc");
         $ui.historyTab.attr("textColor", "#ffffff");
-        $ui.configIndicator.attr("bg", "#2196F3");
+        $ui.configIndicator.attr("bg", appConfig.theme);
         $ui.historyIndicator.attr("bg", "#ffffff");
     });
 
     //! 当开始的时候才将全部配置进行同步，设置激活按钮点击事件
     $ui.startButton.on("click", () => {
 
-         // 禁用按钮，防止重复点击
+        // 禁用按钮，防止重复点击
         $ui.startButton.attr("enabled", false);
+        $ui.startButton.setText("请稍候...");
+        $ui.startButton.attr("bg", "#cccccc"); // 灰色
 
         // 保存当前配置
         appConfig.activationKey = $ui.activationCode.getText().toString();
@@ -338,19 +347,23 @@ function initEvents() {
                     launcher.checkResults.floaty) {
                     // 检查邀请码
                     checkInvitationCode(() => {
-                        $ui.startButton.attr("enabled", true);
-                        $ui.startButton.text = "开始运行";
-                        $ui.startButton.attr("bg", appConfig.theme); // 恢复主题色
+                        ui.run(() => {
+                            $ui.startButton.attr("enabled", true);
+                            $ui.startButton.setText("开始运行");
+                            $ui.startButton.attr("bg", appConfig.theme); // 恢复主题色
+                        });
                     });;
                     return;
                 } else {
                     // 显示权限设置界面
                     launcher.fixAccessibilityService()
-                    .finally(() => {
-                        $ui.startButton.attr("enabled", false);
-                        $ui.startButton.text = "请稍候...";
-                        $ui.startButton.attr("bg", "#cccccc"); // 灰色
-                    });
+                        .finally(() => {
+                            ui.run(() => {
+                                $ui.startButton.attr("enabled", true);
+                                $ui.startButton.setText("开始运行");
+                                $ui.startButton.attr("bg", appConfig.theme); // 灰色
+                            });
+                        });
                 }
             })
             .catch(error => {
@@ -439,33 +452,9 @@ function initEvents() {
             }
 
             // 请求权限
-            dialogs.build({
-                title: "需要截图权限",
-                content: "此功能需要截图权限，是否立即授权？",
-                positive: "去授权",
-                negative: "取消"
-            }).on("positive", () => {
-                utils.requestCapturePermission()
-                    .then(result => {
-                        if (!result) {
-                            toast("获取截图权限失败");
-                            // 恢复复选框状态
-                            $ui.screenCapturePermission.checked = false;
-                            appConfig.permissions.screenCapture = false;
-                        }
-                    })
-                    .catch(e => {
-                        console.error("请求截图权限时出错: " + e);
-                        toast("请求截图权限失败");
-                        // 恢复复选框状态
-                        $ui.screenCapturePermission.checked = false;
-                        appConfig.permissions.screenCapture = false;
-                    });
-            }).on("negative", () => {
-                // 如果用户取消，恢复复选框状态
-                $ui.screenCapturePermission.checked = false;
-                appConfig.permissions.screenCapture = false;
-            }).show();
+            if (!utils.checkCapturePermission()) {
+                dialogsCaptureScreen();
+            }
         }
     });
 
@@ -519,7 +508,6 @@ function checkInvitationCode(callback) {
         toast('请输入激活码!!')
         return
     }
-
     // 发送激活请求
     threads.start(function () {
         try {
@@ -527,7 +515,7 @@ function checkInvitationCode(callback) {
             if (!res || !res.body) {
                 toast("激活请求失败，网络无响应");
                 logger.error("激活请求失败，网络无响应");
-                if (callback) callback();
+                // if (callback) callback();
                 return;
             }
             let result = res.body.string();
@@ -564,37 +552,9 @@ function checkInvitationCode(callback) {
                             if (callback) callback();
                             return;
                         }
-                        dialogs.build({
-                            title: "需要截图权限",
-                            content: "程序需要截图权限来检测页面状态，是否授予权限？",
-                            positive: "授予权限",
-                            negative: "取消"
-                        }).on("positive", () => {
-                            utils.requestCapturePermission()
-                                .then(result => {
-                                    if (result) {
-                                        saveConfigAndContinue();
-                                   
-                                    } else {
-                                        toast("未获得截图权限，无法继续运行");
-                                        $ui.screenCapturePermission.checked = false;
-                                        appConfig.permissions.screenCapture = false;
-                                    }
-                                })
-                                .catch(e => {
-                                    console.error("请求截图权限时出错: " + e);
-                                    toast("请求截图权限失败，请重试");
-                                    $ui.screenCapturePermission.checked = false;
-                                    appConfig.permissions.screenCapture = false;
-                                }).finally(() => {
-                                    if (callback) callback();
-                                });
-                        }).on("negative", () => {
-                            toast("未授予截图权限，无法继续运行");
-                            $ui.screenCapturePermission.checked = false;
-                            appConfig.permissions.screenCapture = false;
-                            if (callback) callback();
-                        }).show();
+                        if (!utils.checkCapturePermission()) {
+                            dialogsCaptureScreen();
+                        }
                     } else {
                         saveConfigAndContinue();
                     }
@@ -604,6 +564,7 @@ function checkInvitationCode(callback) {
                 toast(json.msg || '激活失败');
                 logger.error("激活失败: " + (json.msg || "未知错误"));
             }
+            if (callback) callback();
         } catch (e) {
             toast("激活码异常，请联系管理员！");
             logger.error("激活请求异常: " + e);
@@ -611,6 +572,36 @@ function checkInvitationCode(callback) {
     });
 }
 
+//截图权限弹窗
+function dialogsCaptureScreen() {
+    dialogs.build({
+        title: "需要截图权限",
+        content: "此功能需要截图权限，是否立即授权？",
+        positive: "去授权",
+        negative: "取消"
+    }).on("positive", () => {
+        utils.requestCapturePermission()
+            .then(result => {
+                if (!result) {
+                    toast("获取截图权限失败");
+                    // 恢复复选框状态
+                    $ui.screenCapturePermission.checked = false;
+                    appConfig.permissions.screenCapture = false;
+                }
+            })
+            .catch(e => {
+                console.error("请求截图权限时出错: " + e);
+                toast("请求截图权限失败");
+                // 恢复复选框状态
+                $ui.screenCapturePermission.checked = false;
+                appConfig.permissions.screenCapture = false;
+            });
+    }).on("negative", () => {
+        // 如果用户取消，恢复复选框状态
+        $ui.screenCapturePermission.checked = false;
+        appConfig.permissions.screenCapture = false;
+    }).show();
+}
 
 // 显示权限设置界面
 function showPermissionSettings() {
@@ -682,14 +673,15 @@ function createFloatyWindow() {
             <horizontal>
                 <frame id="expandPanel" visibility="gone" bg="#00000000" padding="4" alpha="0.9">
                     <horizontal gravity="center">
-                        <button id="stopButton" style="Widget.AppCompat.Button.Colored" text="停止" w="40" h="35" bg={appConfig.floatyTheme} textColor="#ffffff" margin="1" alpha="0.8" style="@style/Widget.AppCompat.Button.Colored" />
-                        <button id="pauseButton"    style="Widget.AppCompat.Button.Colored" text="暂停" w="40" h="35" bg={appConfig.floatyTheme} textColor="#ffffff" margin="1" alpha="0.8" style="@style/Widget.AppCompat.Button.Colored" />
-                        <button id="settingsButton"    style="Widget.AppCompat.Button.Colored" text="设置" w="40" h="35" bg={appConfig.floatyTheme} textColor="#ffffff" margin="1" alpha="0.8" style="@style/Widget.AppCompat.Button.Colored" />
-                        <button id="exitButton"    style="Widget.AppCompat.Button.Colored" text="退出" w="40" h="35" bg={appConfig.floatyTheme} textColor="#ffffff" margin="1" alpha="0.8" style="@style/Widget.AppCompat.Button.Colored" />
+                        <button id="stopButton" text="停止" w="40" h="35" bg={appConfig.floatyTheme} textColor="#ffffff" margin="1" alpha="0.8" style="@style/Widget.AppCompat.Button.Colored" />
+                        <button id="pauseButton" text="暂停" w="40" h="35" bg={appConfig.floatyTheme} textColor="#ffffff" margin="1" alpha="0.8" style="@style/Widget.AppCompat.Button.Colored" />
+                        <button id="settingsButton" text="设置" w="40" h="35" bg={appConfig.floatyTheme} textColor="#ffffff" margin="1" alpha="0.8" style="@style/Widget.AppCompat.Button.Colored" />
+                        <button id="exitButton" text="退出" w="40" h="35" bg={appConfig.floatyTheme} textColor="#ffffff" margin="1" alpha="0.8" style="@style/Widget.AppCompat.Button.Colored" />
                     </horizontal>
                 </frame>
                 <frame gravity="center">
-                    <button id="menuButton"    style="Widget.AppCompat.Button.Colored" text="菜单" w="40" h="40" bg={appConfig.floatyTheme} textColor="#ffffff" textSize="12sp" style="@style/Widget.AppCompat.Button.Colored" />
+                    <img id="menuButton" tin={appConfig.floatyTheme} w="40" h="40" src="data:image/png;base64,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" />
+                    {/* <button id="menuButton"  style="Widget.AppCompat.Button.Colored" text="菜单" w="40" h="40" bg={appConfig.floatyTheme} textColor="#ffffff" textSize="12sp" style="@style/Widget.AppCompat.Button.Colored" /> */}
                 </frame>
             </horizontal>
         );
@@ -889,14 +881,14 @@ function showSettingsDialog() {
                 <vertical padding="16">
                     <vertical padding="16">
                         <text text="激活码：" textSize="14sp" />
-                        <input id="activationCode" textSize="12sp" hint="请输入激活码" gravity="center" text={appConfig.activationKey} />
+                        <input id="activationCode" textSize="14sp" hint="请输入激活码" gravity="center" text={appConfig.activationKey} />
                     </vertical>
                 </vertical>
             );
 
             // 创建对话框
             let dialog = dialogs.build({
-                title: "漫画阅读设置",
+                title: "阅读设置",
                 titleColor: "#333333",
                 customView: view,
                 positive: "确定",

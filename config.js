@@ -32,7 +32,7 @@ var defaultConfig = {
     },
     // UI设置
     floatyOpacity: 0.8,         // 悬浮窗透明度
-    floatyTheme: "#2196F3",        // 悬浮窗主题 (dark/light)
+    floatyTheme: "#00dc64",        // 悬浮窗主题 (dark/light)
     theme: "#2196F3",        // 悬浮窗主题 (dark/light)
     floatyPosition: {           // 悬浮窗默认位置
         x: -1,                  // -1 表示屏幕右侧
@@ -43,7 +43,7 @@ var defaultConfig = {
 
     // 应用设置
     firstRun: true,             // 首次运行标志
-    activationKey: "kOx9rDB4AbfMJ8LaWH5emRFc03ZuYS",          // 激活码
+    activationKey: "nidUNL915ub86f2",          // 激活码
 
     // 权限设置
     permissions: {

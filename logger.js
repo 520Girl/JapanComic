@@ -235,7 +235,75 @@ var LoggerManager = (function () {
                 }
 
                 return format;
-            }
+            },
+
+            // 添加导出日志方法
+            getLogArchive: function () {
+                try {
+                    console.info("正在创建日志压缩包...");
+
+                    // 检查日志目录是否存在
+                    if (!fs.exists(this.logDir)) {
+                        console.warn("日志目录不存在: " + this.logDir);
+                        return null;
+                    }
+
+                    // 检查日志文件是否存在
+                    var logFiles = fs.listDir(this.logDir, function (file) {
+                        return file.endsWith(".log");
+                    });
+
+                    if (!logFiles || logFiles.length === 0) {
+                        console.warn("没有找到日志文件");
+                        return null;
+                    }
+
+                    // 创建一个临时目录来存放日志文件的副本
+                    var tempDir = files.cwd() + "/temp_logs_" + Date.now();
+                    files.ensureDir(tempDir);
+
+                    // 复制日志文件到临时目录
+                    for (var i = 0; i < logFiles.length; i++) {
+                        var srcPath = this.logDir + "/" + logFiles[i];
+                        var destPath = tempDir + "/" + logFiles[i];
+                        files.copy(srcPath, destPath);
+                    }
+
+                    // 创建一个简单的日志摘要文件
+                    var summaryPath = tempDir + "/log_summary.txt";
+                    var summary = "日志摘要\n";
+                    summary += "创建时间: " + this.formatDate(new Date(), "yyyy-MM-dd HH:mm:ss") + "\n";
+                    summary += "日志文件数量: " + logFiles.length + "\n";
+                    summary += "日志文件列表:\n";
+                    for (var i = 0; i < logFiles.length; i++) {
+                        summary += "- " + logFiles[i] + "\n";
+                    }
+                    files.write(summaryPath, summary);
+
+                    // 创建一个目录来存放最终的日志文件
+                    var archiveName = "comic_logs_" + this.formatDate(new Date(), "yyyyMMdd_HHmmss");
+                    var archiveDir = files.getSdcardPath() + "/Pictures/" + archiveName;
+                    files.ensureDir(archiveDir);
+
+                    // 将所有临时文件复制到最终目录
+                    var tempFiles = files.listDir(tempDir);
+                    for (var i = 0; i < tempFiles.length; i++) {
+                        var srcPath = tempDir + "/" + tempFiles[i];
+                        var destPath = archiveDir + "/" + tempFiles[i];
+                        files.copy(srcPath, destPath);
+                    }
+
+                    // 清理临时目录
+                    files.removeDir(tempDir);
+
+                    console.info("日志文件已复制到: " + archiveDir);
+                    return archiveDir;
+                } catch (e) {
+                    console.error("创建日志压缩包失败: " + e);
+                    return null;
+                }
+            },
+
         };
 
         return manager;
@@ -261,5 +329,9 @@ module.exports = {
     updateConfig: function (config) {
         var manager = LoggerManager.getInstance();
         manager.init(config);
+    },
+    // 添加导出日志方法到模块导出
+    getLogArchive: function () {
+        return LoggerManager.getInstance().getLogArchive();
     }
 };
