@@ -26,9 +26,9 @@ var defaultConfig = {
         isActivated: false,
         lastCheckTime: null, // 上次检查时间
         checkInterval: 5 * 60 * 1000, // 检查间隔，默认5分钟
-        apiKey: "HSAErHykQ3aFCsZxeYGw",
-        // apiUrl: "http://192.168.31.47:8088"
-        apiUrl: "https://linedme.org"
+        apiKey: "aikmh123",
+        apiUrl: "http://192.168.31.47:8088"
+        // apiUrl: "https://linedme.org"
     },
     // UI设置
     floatyOpacity: 0.8,         // 悬浮窗透明度
@@ -39,13 +39,11 @@ var defaultConfig = {
         y: 300                  // 距离屏幕顶部的位置
     },
 
-    // 高级设置
-    useAccessibilityService: true,  // 使用无障碍服务
-    tryAlternateMethod: true,       // 尝试备用方法
+
 
     // 应用设置
     firstRun: true,             // 首次运行标志
-    activationKey: "1GUsrmbcoXJvhu8",          // 激活码
+    activationKey: "kOx9rDB4AbfMJ8LaWH5emRFc03ZuYS",          // 激活码
 
     // 权限设置
     permissions: {
@@ -75,7 +73,7 @@ var defaultConfig = {
         logToFile: true,         // 是否将日志写入文件
         logToConsole: true,      // 是否在控制台显示日志
         logToast: true,         // 是否在悬浮窗显示日志
-        maxFileSize: 1024 * 1024, // 单个日志文件最大大小 (1MB)
+        maxFileSize: 1024 * 1024 * 5, // 单个日志文件最大大小 (1MB)
         maxFiles: 5,             // 最大保留日志文件数
         errorReport: false,      // 是否启用错误上报
         reportUrl: "",           // 错误上报地址
@@ -113,7 +111,8 @@ function loadConfig() {
                 // 这里可以添加版本迁移代码
                 mergedConfig.version = defaultConfig.version;
             }
-            logger = utils.initLogger("config", mergedConfig);
+            // logger = utils.initLogger("config", mergedConfig);
+            logger = require('./logger.js').initLogger('config', mergedConfig);
             return mergedConfig;
         } else {
             logger.info("配置文件不存在，使用默认配置");

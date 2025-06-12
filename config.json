@@ -16,10 +16,8 @@
         "x": -1,
         "y": 300
     },
-    "useAccessibilityService": true,
-    "tryAlternateMethod": true,
     "firstRun": true,
-    "activationKey": "1GUsrmbcoXJvhu8",
+    "activationKey": "kOx9rDB4AbfMJ8LaWH5emRFc03ZuYS",
     "logging": {
         "enabled": true,
         "logLevel": "info",
@@ -43,8 +41,8 @@
         "isActivated":false,
         "lastCheckTime":null,
         "checkInterval": 300000,
-        "apiKey": "HSAErHykQ3aFCsZxeYGw",
-        "apiUrl": "https://linedme.org"
+        "apiKey": "aikmh123",
+        "apiUrl": "http://192.168.31.47:8088"
     },
     "readHistory":{
         "enabled":true,

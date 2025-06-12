@@ -6,12 +6,11 @@
 // maxScrollAttempts = 30 页面滚动
 // maxScrolls  = 5 更新页面滚动
 // 初始化日志系统
-var logger = null;
 var config = require("./config.js");
 var utils = require("./utils.js");
 appConfig = config.appConfig;
 appConfig.update = config.updateConfig;
-logger = utils.initLogger("rhino", appConfig);
+var logger = utils.initLogger("rhino", appConfig);
 var packageName = "uni.UNI9BC7DBD";
 var appName = "LINE マンガ";
 var packageNamess = currentPackage();
@@ -26,49 +25,51 @@ var args = engines.myEngine().execArgv;
 // 监听配置变更     
 threads.start(function () {
     let filePath = files.path("./config.json");
+    let currentContent = JSON.parse(files.read(filePath));
+    console.log("currentContent: ", currentContent);
     // let lastContent = files.read(filePath);
     // 定期检查配置文件变化
-    setIntervalLookConfig = setInterval(() => {
-        try {
-            let currentContent = JSON.parse(files.read(filePath));
-            if (currentContent.readComic.running) {
-                appConfig.readComic.running = currentContent.readComic.running;
-                appConfig.readComic.isPaused = currentContent.readComic.isPaused;
-                appConfig.autoScroll = currentContent.autoScroll;
-                appConfig.readSpeed = currentContent.readSpeed;
-                appConfig.activation.isActivated = currentContent.activation.isActivated;
-                appConfig.activation.lastCheckTime = currentContent.activation.lastCheckTime;
-                console.log("newConfig: 是否暂停 ", currentContent.readComic.isPaused);
-            }
-        } catch (e) {
-            console.error("读取配置文件失败:", e);
-        }
-    }, scrollParams.interval);
+    // setIntervalLookConfig = setInterval(() => {
+    //     try {
+    //         let currentContent = JSON.parse(files.read(filePath));
+    //         if (currentContent.readComic.running) {
+    //             appConfig.readComic.running = currentContent.readComic.running;
+    //             appConfig.readComic.isPaused = currentContent.readComic.isPaused;
+    //             appConfig.autoScroll = currentContent.autoScroll;
+    //             appConfig.readSpeed = currentContent.readSpeed;
+    //             appConfig.activation.isActivated = currentContent.activation.isActivated;
+    //             appConfig.activation.lastCheckTime = currentContent.activation.lastCheckTime;
+    //             console.log("newConfig: 是否暂停 ", currentContent.readComic.isPaused);
+    //         }
+    //     } catch (e) {
+    //         console.error("读取配置文件失败:", e);
+    //     }
+    // }, scrollParams.interval);
 
-    var activationCheckInterval = setInterval(() => {
-        console.log('activationCheckInterval');
-        try {
-            // 检查是否应该退出
-            if (!appConfig.readComic.running) {
-                logger.info("检测到停止信号，清除激活检查定时器");
-                utils.handleActivationExpired();
-                clearInterval(activationCheckInterval);
-                return;
-            }
+    // var activationCheckInterval = setInterval(() => {
+    //     console.log('activationCheckInterval');
+    //     try {
+    //         // 检查是否应该退出
+    //         if (!appConfig.readComic.running) {
+    //             logger.info("检测到停止信号，清除激活检查定时器");
+    //             utils.handleActivationExpired();
+    //             clearInterval(activationCheckInterval);
+    //             return;
+    //         }
 
-            // 执行激活状态检查
-            if (!utils.checkActivationStatus(appConfig)) {
-                logger.warn("激活状态检查失败，停止脚本");
-                utils.handleActivationExpired(appConfig);
-                clearInterval(activationCheckInterval);
-                return;
-            }
+    //         // 执行激活状态检查
+    //         if (!utils.checkActivationStatus(appConfig)) {
+    //             logger.warn("激活状态检查失败，停止脚本");
+    //             utils.handleActivationExpired(appConfig);
+    //             clearInterval(activationCheckInterval);
+    //             return;
+    //         }
 
-            logger.info("激活状态检查正常");
-        } catch (e) {
-            logger.error("激活状态检查出错: " + e);
-        }
-    }, 5000); // 使用配置中的检查间隔
+    //         logger.info("激活状态检查正常");
+    //     } catch (e) {
+    //         logger.error("激活状态检查出错: " + e);
+    //     }
+    // }, 5000); // 使用配置中的检查间隔
 });
 //! 0. 检查并确保无障碍服务正常运行
 function ensureAccessibilityService() {
@@ -1080,7 +1081,8 @@ function main() {
 }
 try {
     logger.info("开始执行主程序");
-    let result = main();
+    // let result = main();
+    let result = "123";
     if (result) {
         logger.info("主程序执行成功");
     } else {

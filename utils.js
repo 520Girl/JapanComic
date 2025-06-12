@@ -304,6 +304,26 @@ utils.fixAccessibilityNotRunning = function () {
     try {
         console.log("尝试修复无障碍服务未运行问题...");
 
+        if (!auto.service) {
+            // 使用 Promise 处理异步操作
+            return new Promise((resolve, reject) => {
+                log("无障碍服务未启用，尝试启用...");
+                auto.waitFor();
+                
+                // 使用 setTimeout 检查服务状态
+                setTimeout(() => {
+                    try {
+                        let testResult = id("test_nonexistent_id").exists();
+                        log("无障碍服务已成功启用");
+                        resolve(true);
+                    } catch (e) {
+                        log("启用无障碍服务失败: " + e);
+                        reject(e);
+                    }
+                }, 3000);
+            });
+        }
+
         // 方法1: 尝试重启无障碍服务
         toast("尝试方法1: 重启无障碍服务");
         auto.service = false;

@@ -31,21 +31,22 @@ ui.layout(
 var logText = "";
 function log(message) {
     console.log(message);
-    logText += message + "\n";
-    ui.logText.setText(logText);
-    // 自动滚动到底部
-    ui.run(() => {
-        let scrollView = ui.logPanel.getChildAt(1); // 获取ScrollView
-        if (scrollView) {
-            scrollView.fullScroll(android.view.View.FOCUS_DOWN);
-        }
-    });
+    // logText += message + "\n";
+    // ui.logText.setText(logText);
+    // // 自动滚动到底部
+    // ui.run(() => {
+    //     let scrollView = ui.logPanel.getChildAt(1); // 获取ScrollView
+    //     if (scrollView) {
+    //         scrollView.fullScroll(android.view.View.FOCUS_DOWN);
+    //     }
+    // });
 }
 
 // 更新状态文本和进度条
 function updateStatus(message, progress) {
-    ui.statusText.setText(message);
-    ui.progressBar.setProgress(progress);
+    console.log(message);
+    // ui.statusText.setText(message);
+    // ui.progressBar.setProgress(progress);
 }
 
 // 检查环境
@@ -110,36 +111,40 @@ function startMainApp() {
         } catch (e) {
             log("启动程序失败: " + e);
             updateStatus("启动失败", 0);
-            ui.actionPanel.setVisibility(android.view.View.VISIBLE);
+            // ui.actionPanel.setVisibility(android.view.View.VISIBLE);
         }
     }, 1000);
 }
 
 // 检查所有必要条件
 function checkEnvironment() {
-    updateStatus("检查存储权限...", 10);
-    checkStoragePermission()
-        .then(() => {
-            updateStatus("检查无障碍服务...", 30);
-            return checkAccessibilityService();
-        })
-        .then(() => {
-            updateStatus("检查悬浮窗权限...", 50);
-            return checkFloatyPermission();
-        })
-        .then(() => {
-            updateStatus("收集设备信息...", 70);
-            return collectDeviceInfo();
-        })
-        .then(() => {
-            updateStatus("环境检查完成", 90);
-            evaluateResults();
-        })
-        .catch(error => {
-            log("检查过程中出错: " + error);
-            updateStatus("检查失败", 0);
-            ui.actionPanel.setVisibility(android.view.View.VISIBLE);
-        });
+    return new Promise((resolve, reject) => {
+        updateStatus("检查存储权限...", 10);
+        checkStoragePermission()
+            .then(() => {
+                updateStatus("检查无障碍服务...", 30);
+                return checkAccessibilityService();
+            })
+            .then(() => {
+                updateStatus("检查悬浮窗权限...", 50);
+                return checkFloatyPermission();
+            })
+            .then(() => {
+                updateStatus("收集设备信息...", 70);
+                return collectDeviceInfo();
+            })
+            .then(() => {
+                updateStatus("环境检查完成", 90);
+                evaluateResults();
+                resolve();
+            })
+            .catch(error => {
+                log("检查过程中出错: " + error);
+                updateStatus("检查失败", 0);
+                // ui.actionPanel.setVisibility(android.view.View.VISIBLE);
+                resolve();
+            });
+    });
 }
 
 // 检查存储权限
@@ -199,11 +204,11 @@ function checkAccessibilityService() {
                 }
             }
 
-            resolve();
+            resolve(checkResults.accessibility);
         } catch (e) {
             log("检查无障碍服务出错: " + e);
             checkResults.accessibility = false;
-            resolve(); // 继续执行而不中断流程
+            resolve(checkResults.accessibility); // 继续执行而不中断流程
         }
     });
 }
@@ -260,14 +265,14 @@ function evaluateResults() {
     log("悬浮窗权限: " + (checkResults.floaty ? "通过" : "未通过"));
 
     // 显示操作面板
-    ui.actionPanel.setVisibility(android.view.View.VISIBLE);
+    // ui.actionPanel.setVisibility(android.view.View.VISIBLE);
 
     if (checkResults.storage && checkResults.accessibility && checkResults.floaty) {
         updateStatus("环境检查通过，可以启动", 100);
         log("所有检查通过，可以启动主程序");
 
         // 自动启动主程序
-        setTimeout(startMainApp, 1500);
+        // setTimeout(startMainApp, 1500);
     } else {
         if (checkResults.accessibilityNotRunning) {
             updateStatus("无障碍服务已启用但未运行，需要修复", 50);
@@ -283,53 +288,79 @@ function evaluateResults() {
 
 // 尝试修复无障碍服务
 function fixAccessibilityService() {
-    log("尝试修复无障碍服务问题...");
-
-    if (!auto.service) {
-        // 无障碍服务未启用，尝试启用
-        log("无障碍服务未启用，尝试启用...");
-        auto.waitFor();
-        setTimeout(checkAccessibilityService, 3000);
-    } else if (checkResults.accessibilityNotRunning) {
-        // 无障碍服务已启用但未运行
-        log("无障碍服务已启用但未运行，尝试重启...");
-        try {
-            auto.service = false;
-            sleep(1000);
-            auto.service = true;
-            sleep(2000);
-
-            // 再次检查
-            try {
-                let testResult = id("test_nonexistent_id").exists();
-                log("无障碍服务已成功修复");
-                updateStatus("无障碍服务已修复，可以启动", 90);
-                checkResults.accessibility = true;
-                checkResults.accessibilityNotRunning = false;
-            } catch (e) {
-                if (e.toString().indexOf("无障碍服务已启用但并未运行") != -1) {
-                    log("重启无障碍服务失败，请尝试使用'无障碍服务检查工具'...");
-
-                    // 提示用户
-                    dialogs.confirm("重启无障碍服务失败", "是否运行专门的无障碍服务检查工具？")
-                        .then(confirmed => {
-                            if (confirmed) {
-                                engines.execScriptFile("./checkAccessibility.js");
+    return new Promise((resolve, reject) => {
+        if (!auto.service) {
+            // 无障碍服务未启用，尝试启用
+            threads.start(function () {
+                log("无障碍服务未启用，尝试启用...");
+                try {
+                    auto.waitFor();
+                    // 等待服务启动
+                    sleep(3000);
+                    // 验证服务是否真正运行
+                    let serviceRunning = false;
+                    for (let i = 0; i < 3; i++) {
+                        try {
+                            let testResult = id("test_nonexistent_id").exists();
+                            serviceRunning = true;
+                            break;
+                        } catch (e) {
+                            if (e.toString().indexOf("无障碍服务已启用但并未运行") != -1) {
+                                log("等待无障碍服务完全启动...");
+                                sleep(2000);
+                                continue;
                             }
-                        });
+                        }
+                    }
+                    if (serviceRunning) {
+                        log("无障碍服务已成功启用");
+                        checkResults.accessibility = true;
+                        resolve(true);
+                    } else {
+                        log("无障碍服务启用失败");
+                        resolve(false);
+                    }
+                } catch (e) {
+                    log("启用无障碍服务出错: " + e);
+                    resolve(false);
                 }
+            });
+        } else if (checkResults.accessibilityNotRunning) {
+            // 无障碍服务已启用但未运行
+            log("无障碍服务已启用但未运行，尝试重启...");
+            try {
+                auto.service = false;
+                sleep(1000);
+                auto.service = true;
+                sleep(2000);
+
+                // 再次检查
+                try {
+                    let testResult = id("test_nonexistent_id").exists();
+                    log("无障碍服务已成功修复");
+                    checkResults.accessibility = true;
+                    checkResults.accessibilityNotRunning = false;
+                    resolve(true);
+                } catch (e) {
+                    if (e.toString().indexOf("无障碍服务已启用但并未运行") != -1) {
+                        log("重启无障碍服务失败，请尝试使用'无障碍服务检查工具'...");
+                        resolve(false);
+                    }
+                }
+            } catch (e) {
+                log("修复无障碍服务出错: " + e);
+                resolve(false);
             }
-        } catch (e) {
-            log("修复无障碍服务出错: " + e);
+        } else {
+            // 其他情况
+            log("正在打开无障碍服务设置...");
+            app.startActivity({
+                action: "android.settings.ACCESSIBILITY_SETTINGS"
+            });
+            toast("请在设置中找到并启用Auto.js的无障碍服务");
+            resolve(false);
         }
-    } else {
-        // 其他情况
-        log("正在打开无障碍服务设置...");
-        app.startActivity({
-            action: "android.settings.ACCESSIBILITY_SETTINGS"
-        });
-        toast("请在设置中找到并启用Auto.js的无障碍服务");
-    }
+    });
 }
 
 // 打开系统设置
@@ -401,4 +432,15 @@ ui.settingsBtn.on("click", () => {
 });
 
 // 启动检查
-setTimeout(checkEnvironment, 500); 
+// setTimeout(checkEnvironment, 500);
+
+module.exports = {
+    checkResults: checkResults,
+    checkEnvironment: checkEnvironment,
+    checkStoragePermission: checkStoragePermission,
+    checkAccessibilityService: checkAccessibilityService,
+    checkFloatyPermission: checkFloatyPermission,
+    collectDeviceInfo: collectDeviceInfo,
+    evaluateResults: evaluateResults,
+    fixAccessibilityService: fixAccessibilityService,
+};
