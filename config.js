@@ -1,4 +1,4 @@
-/**
+/** 问题联系：uglygirlvip@gmail.com GallopingSteak
  * 全局配置文件
  * 负责管理应用的全局设置
  */
@@ -9,7 +9,7 @@ var utils = require("./utils.js");
 
 
 var defaultConfig = {
-    readSpeed: 300,            // 默认阅读速度，单位毫秒
+    readSpeed: 900,            // 默认阅读速度，单位毫秒
     autoScroll: true,         // 自动滚动
     autoNextChapter: true,      // 自动进入下一章
     debugMode: false,           // 调试模式
@@ -26,9 +26,10 @@ var defaultConfig = {
         isActivated: false,
         lastCheckTime: null, // 上次检查时间
         checkInterval: 5 * 60 * 1000, // 检查间隔，默认5分钟
-        apiKey: "aikmh123",
-        apiUrl: "http://192.168.31.47:8088"
-        // apiUrl: "https://linedme.org"
+        // apiKey: "aikmh123", 
+        // apiUrl: "http://192.168.31.47:8088"
+        apiUrl: "https://linedme.org",
+        apiKey: "HSAErHykQ3aFCsZxeYGw"
     },
     // UI设置
     floatyOpacity: 0.8,         // 悬浮窗透明度
@@ -76,7 +77,7 @@ var defaultConfig = {
         maxFileSize: 1024 * 1024 * 5, // 单个日志文件最大大小 (1MB)
         maxFiles: 5,             // 最大保留日志文件数
         errorReport: false,      // 是否启用错误上报
-        reportUrl: "",           // 错误上报地址
+        reportUrl: "问题联系：uglygirlvip@gmail.com",           // 错误上报地址
         deviceInfo: true         // 是否收集设备信息
     },
     // 阅读漫画设置

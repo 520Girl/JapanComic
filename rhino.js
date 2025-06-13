@@ -1,4 +1,8 @@
 "rhino";
+/**
+ * 作者：GallopingSteak
+ * 邮箱：uglygirlvip@gmail.com 
+ */
 // 本文件以rhino引擎(第一代API)模式运行
 // This file runs in rhino engine (API v1) mode
 
@@ -8,9 +12,12 @@
 // 初始化日志系统
 var config = require("./config.js");
 var utils = require("./utils.js");
+var loggerFile = require('./logger.js');
+var filePath = files.path("./config.json");
+var appConfig = null;
 appConfig = config.appConfig;
 appConfig.update = config.updateConfig;
-var logger = utils.initLogger("rhino", appConfig);
+var logger = null;
 var packageName = "uni.UNI9BC7DBD";
 var appName = "LINE マンガ";
 var packageNamess = currentPackage();
@@ -24,52 +31,48 @@ var args = engines.myEngine().execArgv;
 
 // 监听配置变更     
 threads.start(function () {
-    let filePath = files.path("./config.json");
-    let currentContent = JSON.parse(files.read(filePath));
+    
+    // let currentContent = JSON.parse(files.read(filePath));
     // console.log("currentContent: ", currentContent);
-    let lastContent = files.read(filePath);
     // 定期检查配置文件变化
     setIntervalLookConfig = setInterval(() => {
         try {
             let currentContent = JSON.parse(files.read(filePath));
-            if (currentContent.readComic.running) {
-                appConfig.readComic.running = currentContent.readComic.running;
-                appConfig.readComic.isPaused = currentContent.readComic.isPaused;
-                appConfig.autoScroll = currentContent.autoScroll;
-                appConfig.readSpeed = currentContent.readSpeed;
-                appConfig.activation.isActivated = currentContent.activation.isActivated;
-                appConfig.activation.lastCheckTime = currentContent.activation.lastCheckTime;
-                console.log("newConfig: 是否暂停 ", currentContent.readComic.isPaused);
-            }
+            appConfig.readComic.running = currentContent.readComic.running;
+            appConfig.readComic.isPaused = currentContent.readComic.isPaused;
+            appConfig.activation.isActivated = currentContent.activation.isActivated;
+            appConfig.activation.lastCheckTime = currentContent.activation.lastCheckTime;
+            appConfig.activation.activationKey = currentContent.activation.activationKey;
+            console.log("newConfig: 是否暂停和停止 ", currentContent.readComic.isPaused, currentContent.readComic.running);
         } catch (e) {
-            console.error("读取配置文件失败:", e);
+            logger.error("读取配置文件失败:", e);
         }
     }, scrollParams.interval);
 
-    // var activationCheckInterval = setInterval(() => {
-    //     console.log('activationCheckInterval');
-    //     try {
-    //         // 检查是否应该退出
-    //         if (!appConfig.readComic.running) {
-    //             logger.info("检测到停止信号，清除激活检查定时器");
-    //             utils.handleActivationExpired();
-    //             clearInterval(activationCheckInterval);
-    //             return;
-    //         }
+    var activationCheckInterval = setInterval(() => {
+        console.log('activationCheckInterval');
+        try {
+            // 检查是否应该退出
+            // if (!appConfig.readComic.running) {
+            //     logger.info("检测到停止信号，清除激活检查定时器");
+            //     utils.handleActivationExpired();
+            //     clearInterval(activationCheckInterval);
+            //     return;
+            // }
 
-    //         // 执行激活状态检查
-    //         if (!utils.checkActivationStatus(appConfig)) {
-    //             logger.warn("激活状态检查失败，停止脚本");
-    //             utils.handleActivationExpired(appConfig);
-    //             clearInterval(activationCheckInterval);
-    //             return;
-    //         }
+            // 执行激活状态检查
+            if (!utils.checkActivationStatus(appConfig)) {
+                logger.warn("激活状态检查失败，停止脚本");
+                utils.handleActivationExpired(appConfig);
+                clearInterval(activationCheckInterval);
+                return;
+            }
 
-    //         logger.info("激活状态检查正常");
-    //     } catch (e) {
-    //         logger.error("激活状态检查出错: " + e);
-    //     }
-    // }, 5000); // 使用配置中的检查间隔
+            logger.info("激活状态检查正常");
+        } catch (e) {
+            logger.error("激活状态检查出错: " + e);
+        }
+    }, appConfig.activation.checkInterval); // 使用配置中的检查间隔
 });
 //! 0. 检查并确保无障碍服务正常运行
 function ensureAccessibilityService() {
@@ -242,7 +245,7 @@ function checkLogin() {
         if (!checkControlStatus()) return false;
 
         if (id("contentWrapper").exists()) {
-            logger.info('检测成功');
+            logger.info('检测成功，当前为首页，开始检测是否登录');
             break;
         }
         sleep(500);  // 增加等待时间，减少CPU占用
@@ -271,6 +274,7 @@ function checkLogin() {
             // 执行登录查看
             if (!userLogin()) {
                 toast("用户未登录，停止脚本");
+                logger.info("用户未登录，停止脚本");
                 engines.stopAll();
                 ui.finish();
                 clearInterval(setIntervalLookConfig);
@@ -329,9 +333,10 @@ function startWatchComic() {
         //      swipe(startX, startY, endX, endY, 500);
         //      sleep(500);
         //  }
-
+        if (!checkControlStatus()) return false;
         // 等待页面稳定
         sleep(1000);
+        utils.performGC();
 
         var mainView = text("もっと見る").findOne(scrollParams.duration);
         if (mainView) {
@@ -458,6 +463,7 @@ function defineScreenGrid() {
 }
 //!? 3.1.2 在指定区域查找并点击元素
 function clickGridCenter(gridIndex) {
+    if (!checkControlStatus()) return false;
     try {
         const screenInfo = defineScreenGrid();
         const targetGrid = screenInfo.grid[gridIndex];
@@ -517,7 +523,7 @@ function controlGridClick() {
 
     while (scrollCount < maxScrolls) {
         // 依次点击每个格子的中心
-        for (let i = 0; i < 9; i++) {
+        for (let i = 2; i < 9; i++) {
             if (!checkControlStatus()) return false;
 
             logger.info(`尝试点击第 ${i} 个区域中心`);
@@ -561,6 +567,7 @@ function checkHomePage(status) {
 
         while (attempts < maxAttempts) {
             attempts++;
+            if (!checkControlStatus()) return false;
             logger.info(`第 ${attempts} 次检查首页状态`);
 
             var nav = id("contentWrapper").find();
@@ -727,7 +734,7 @@ function chapterAndStartLook() {
             var match = fullText.match(/更新(\d+)話/);
             if (match && match[1]) {
                 number = parseInt(match[1]);
-                logger.info("提取到章节: " + number);
+                logger.info("提取到章节: " + number+'漫画名称');
             } else {
                 logger.info("未能从文本中提取数字");
             }
@@ -770,7 +777,12 @@ function scrollToBottom() {
     if (!appConfig.autoScroll) {
         toast("自动滚动已禁用，请手动滑动屏幕");
         // 等待用户手动滚动一段时间
-        sleep(30000);
+        var endTextFound = textContains("次の話を引っ張っています").exists() ||
+        textContains("マスター、もう終わりだ。~").exists() ||
+        textContains("主人、すでに最後まで来ましたよ~").exists();
+        while(!endTextFound){
+            sleep(1000);
+        }
         return true;
     }
 
@@ -799,8 +811,8 @@ function scrollToBottom() {
         // 检查是否出现了特定文本"次の話を引っ張っています~"
         try {
             var endTextFound = textContains("次の話を引っ張っています").exists() ||
-                textContains("マスター、もう終わりだ。~").exists() ||
-                textContains("主人、すでに最後まで来ましたよ~").exists();
+                textContains("マスター、もう終わりだ。~").exists() || textContains("主人、すでに最後まで来ましたよ~").exists();
+                
 
             if (endTextFound) {
                 logger.info("检测到'次の話を引っ張っています~'文本，点击屏幕");
@@ -870,7 +882,7 @@ function scrollToBottom() {
         logger.info("滚动次数: " + count + ", 当前位置: " + currentY + "");
 
         // 每次滚动后稍作停顿，模拟真实阅读
-        sleep(appConfig.readSpeed * 3);
+        sleep(appConfig.readSpeed);
     }
 
     if (count >= maxScrollAttempts) {
@@ -925,7 +937,8 @@ function checkControlStatus() {
     console.log("checkControlStatus", appConfig.readComic.running, appConfig.readComic.isPaused);
     // 检查是否应该退出
     if (!appConfig.readComic.running) {
-        logger.info("检测到停止或退出信号，终止当前操作");
+        logger.info("检测到停止或退出信号，终止当前操作，并等待重新开始");
+        main();
         return false;
     }
 
@@ -940,7 +953,7 @@ function checkControlStatus() {
             console.log("检测到暂停状态");
             sleep(500); // 暂停期间每300毫秒检查一次状态
         }
-        console.log("检测到暂停状态结束，开始继续执行");
+        logger.info("检测到暂停状态结束，开始继续执行");
         // 检查退出暂停循环的原因
         if (!appConfig.readComic.running) {
             logger.info("在暂停状态收到停止/退出命令，中断操作");
@@ -960,9 +973,9 @@ try {
     // 创建一个自定义的错误处理函数
     var customErrorHandler = function (err) {
         try {
-            logger.error("未捕获的异常: " + err + "\n堆栈: " + (err.stack || ""));
+            logger.info("未捕获的异常: " + err + "\n堆栈: " + (err.stack || ""));
         } catch (error) {
-            console.error("处理未捕获异常时出错: " + error);
+            logger.error("处理未捕获异常时出错: " + error);
         }
     };
 
@@ -978,7 +991,7 @@ try {
                     customErrorHandler(error);
                 }
             }));
-            logger.info("已设置Java异常处理器");
+            console.info("已设置Java异常处理器");
         }
     }
 
@@ -989,7 +1002,7 @@ try {
             engine.on('uncaughtException', function (err) {
                 customErrorHandler(err);
             });
-            logger.info("已设置脚本错误处理器");
+            console.log("已设置脚本错误处理器");
         }
     }
 } catch (e) {
@@ -999,6 +1012,7 @@ try {
 
 //! 组合一下从漫画详情页面到 观看漫画的动作
 function ComicDetailToWatchComic() {
+    if (!checkControlStatus()) return false;
     var newChapter = chapterAndStartLook();
 
     if (newChapter === false) {
@@ -1011,7 +1025,7 @@ function ComicDetailToWatchComic() {
     //     newChapter = 1; // 默认章节数
     // }
 
-    var currentChapter = 2;
+    var currentChapter = 1;
 
     // 章节阅读循环
     while (currentChapter <= newChapter && appConfig.readComic.running) {
@@ -1028,6 +1042,12 @@ function ComicDetailToWatchComic() {
 
         // 滚动页面
         var scrollSuccess = scrollToBottom();
+        //当滚动到最后一话时，直接结束
+        var endTextFound2 = textContains("主人、すでに最後まで来ましたよ~").exists();
+        if (endTextFound2) {
+            toast("当前漫画,已观看完毕");
+            break;
+        }
 
         // 检查滚动结果
         if (!checkControlStatus()) break;
@@ -1062,10 +1082,15 @@ function ComicDetailToWatchComic() {
 //! 主函数运行 从 打开app 开始 到 滚动观看漫画
 function main() {
     // while (appConfig.readComic.running && !appConfig.readComic.shouldExit) {
+    if(!appConfig.readComic.running){
+        while(!appConfig.readComic.running){
+            sleep(1000);
+        }
+    }
+    
     if (safeStartApp(packageName)) {
         // app 开启之后需要检测是否在首页
         // chapterAndStartLook();
-
         if (!checkHomePage()) return true;
 
         // 检测用户是否登录
@@ -1074,15 +1099,28 @@ function main() {
         //点击今日更新 进行观看动漫
         if (!startWatchComic()) return;
         // break;
-
         controlGridClick();
     }
     // }
 }
+
 try {
+
+
+    //创建日志文件，更新appConfig的值，并初始化logger
+    let currentContent = JSON.parse(files.read(filePath));
+    appConfig.logging.logLevel = currentContent.logging.logLevel;
+    appConfig.logging.enabled = currentContent.logging.enabled;
+    appConfig.logging.deviceInfo = currentContent.logging.deviceInfo;
+    appConfig.debugMode = currentContent.debugMode;
+    appConfig.autoScroll = currentContent.autoScroll;
+    appConfig.readSpeed = currentContent.readSpeed;
+    appConfig.autoNextChapter = currentContent.autoNextChapter;
+    scrollParams = appConfig.scrollParams[appConfig.scrollSpeedIndex]
+    logger = loggerFile.initLogger('rhino', appConfig);
     logger.info("开始执行主程序");
-    // let result = main();
-    let result = '';
+
+    let result = main();
     if (result) {
         logger.info("主程序执行成功");
     } else {

@@ -423,7 +423,7 @@ utils.unregisterFloatyWindow = function (window) {
  * 关闭所有注册的悬浮窗
  */
 utils.closeAllFloatyWindows = function () {
-    console.log("正在关闭所有悬浮窗，数量: " + utils.floatyWindows.length);
+    logger.info("正在关闭所有悬浮窗，数量: " + utils.floatyWindows.length);
 
     // 复制数组，因为在关闭过程中可能会修改原数组
     var windows = utils.floatyWindows.slice();
@@ -433,16 +433,16 @@ utils.closeAllFloatyWindows = function () {
             var window = windows[i];
             if (window && typeof window.close === 'function') {
                 window.close();
-                console.log("已关闭悬浮窗 #" + i);
+                logger.info("已关闭悬浮窗 #" + i);
             }
         } catch (e) {
-            console.error("关闭悬浮窗 #" + i + " 时出错: " + e);
+            logger.error("关闭悬浮窗 #" + i + " 时出错: " + e);
         }
     }
 
     // 清空数组
     utils.floatyWindows = [];
-    console.log("所有悬浮窗已关闭");
+    logger.info("所有悬浮窗已关闭");
 };
 
 
@@ -751,8 +751,8 @@ utils.md5 = function (str) {
  * @param {string} apikey API密钥
  * @returns {string} 32位大写MD5签名
  */
-utils.generateActivationSign = function (cdkey, deviceid, facility, timestamp, apikey) {
-    var signStr = `CDKEY=${cdkey}&deviceid=${deviceid}&facility=${facility}&timestamp=${timestamp}${apikey}`;
+utils.generateActivationSign = function (cdkey, deviceid, facility,info, timestamp, apikey) {
+    var signStr = `CDKEY=${cdkey}&deviceid=${deviceid}&facility=${facility}&info=${info}&timestamp=${timestamp}${apikey}`;
     return utils.md5(signStr).toUpperCase();
 };
 
@@ -810,7 +810,7 @@ utils.checkActivationStatus = function () {
     }
 };
 // 更新配置 完全停止程序
-utils.handleActivationExpired = function () {
+utils.handleActivationExpired = function (appConfig,logger) {
     // 更新配置
     appConfig.activation.isActivated = false;
     appConfig.activation.lastCheckTime = null;
@@ -825,11 +825,11 @@ utils.handleActivationExpired = function () {
     });
 
     // 关闭所有悬浮窗
-    utils.closeAllFloatyWindows();
+    utils.closeAllFloatyWindows(logger);
 
     // 显示提示
     ui.run(() => {
-        dialogs.alert("激活已过期", "您的激活码已过期，请重新激活");
+        toast("已停止...");
     });
 
     // 停止所有脚本

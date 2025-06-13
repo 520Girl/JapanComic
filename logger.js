@@ -1,4 +1,8 @@
 /**
+ * 作者：GallopingSteak
+ * 邮箱：uglygirlvip@gmail.com 
+ */
+/**
  * 漫画阅读器日志系统
  * 负责记录程序运行状态、错误信息，并支持日志文件管理和远程错误诊断
  */
@@ -14,7 +18,7 @@ var LoggerManager = (function () {
         var manager = {
             loggers: new Map(),
             config: null,
-            levels: {
+            levels: { // debug模式全部显示日志
                 "debug": 0,
                 "info": 1,
                 "warn": 2,
@@ -124,16 +128,16 @@ var LoggerManager = (function () {
 
                 switch (level) {
                     case 'error':
-                        console.error(formattedMessage);
+                        console.log(formattedMessage);
                         break;
                     case 'warn':
-                        console.warn(formattedMessage);
+                        console.log(formattedMessage);
                         break;
                     case 'debug':
-                        console.verbose(formattedMessage);
+                        console.log(formattedMessage);
                         break;
                     default:
-                        console.info(formattedMessage);
+                        console.log(formattedMessage);
                 }
 
                 if (this.config.logging && this.config.logging.logToFile && this.config.debugMode) {
@@ -270,8 +274,10 @@ var LoggerManager = (function () {
                     }
 
                     // 创建一个简单的日志摘要文件
-                    var summaryPath = tempDir + "/log_summary.txt";
+                    var summaryPath = tempDir + "/log_summary问题联系：uglygirlvip@gmail.com.txt";
                     var summary = "日志摘要\n";
+                    summary += "作者：GallopingSteak\n";
+                    summary += "邮箱：uglygirlvip@gmail.com\n";
                     summary += "创建时间: " + this.formatDate(new Date(), "yyyy-MM-dd HH:mm:ss") + "\n";
                     summary += "日志文件数量: " + logFiles.length + "\n";
                     summary += "日志文件列表:\n";

@@ -1,5 +1,5 @@
 {
-    "readSpeed": 300,
+    "readSpeed": 900,
     "autoScroll": true,
     "autoNextChapter": true,
     "debugMode": true,
@@ -28,7 +28,7 @@
         "maxFiles": 5,
         "logDir": "./logs",
         "errorReport": false,
-        "reportUrl": "",
+        "reportUrl": "问题联系：uglygirlvip@gmail.com",
         "deviceInfo": true
     },
     "permissions":{
@@ -41,8 +41,8 @@
         "isActivated":false,
         "lastCheckTime":null,
         "checkInterval": 300000,
-        "apiKey": "aikmh123",
-        "apiUrl": "http://192.168.31.47:8088"
+        "apiKey": "HSAErHykQ3aFCsZxeYGw",
+        "apiUrl": "https://linedme.org"
     },
     "readHistory":{
         "enabled":true,

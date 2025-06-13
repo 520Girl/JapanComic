@@ -4,6 +4,11 @@
  * launcher.js
  * 应用启动器，专门处理各种权限和无障碍服务问题，确保主程序能够正常运行
  */
+var config = require("./config.js");
+var loggerFile = require('./logger.js');
+appConfig = config.appConfig;
+appConfig.update = config.updateConfig;
+var logger = loggerFile.initLogger('launcher', appConfig);
 
 // 设置UI
 ui.layout(
@@ -30,7 +35,7 @@ ui.layout(
 // 初始化日志
 var logText = "";
 function log(message) {
-    console.log(message);
+    logger.info(message);
     // logText += message + "\n";
     // ui.logText.setText(logText);
     // // 自动滚动到底部
@@ -44,7 +49,7 @@ function log(message) {
 
 // 更新状态文本和进度条
 function updateStatus(message, progress) {
-    console.log(message);
+    logger.info(message);
     // ui.statusText.setText(message);
     // ui.progressBar.setProgress(progress);
 }

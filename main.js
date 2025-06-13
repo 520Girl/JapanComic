@@ -1,5 +1,8 @@
 "ui";
-
+/**
+ * 作者：GallopingSteak
+ * 邮箱：uglygirlvip@gmail.com 
+ */
 // 加载工具模块
 var utils = require("./utils.js");
 var launcher = require('./launcher.js');
@@ -157,8 +160,9 @@ $ui.layout(
                                         <text text="上报地址：" textSize="14sp" textColor="#333333" marginBottom="4" />
                                         <input id="reportUrlInput" hint="请输入错误上报服务器地址" text={appConfig.logging && appConfig.logging.reportUrl || ""} textSize="14sp" />
 
-                                        <horizontal marginTop="16">
-                                            <button id="exportLogsBtn" text="导出日志" w="*" style="Widget.AppCompat.Button.Colored" textColor="#ffffff" bg={appConfig.theme} />
+                                        <horizontal marginTop="16" gravity="center_vertical">
+                                            <img src="@drawable/ic_save_black_48dp" w="24" h="24" tint={appConfig.theme} marginRight="8" />
+                                            <button id="exportLogsBtn" text="导出日志" w="*" textColor="#ffffff" bg={appConfig.theme} />
                                         </horizontal>
                                     </vertical>
                                 </vertical>
@@ -173,6 +177,14 @@ $ui.layout(
 
 // 抽取保存配置和继续执行的逻辑为单独的函数
 function saveConfigAndContinue() {
+    let logLevelMap = {
+        0: "debug",
+        1: "info",
+        2: "warn",
+        3: "error",
+        4: "none"
+    };
+    appConfig.logging.logLevel = logLevelMap[$ui.logLevelSpinner.getSelectedItemPosition()];
     // 保存配置
     var config = {
         readSpeed: appConfig.readSpeed,
@@ -186,7 +198,7 @@ function saveConfigAndContinue() {
         permissions: appConfig.permissions,
         logger: {
             enabled: appConfig.logging.enabled,
-            logLevel: $ui.logLevelSpinner.getSelectedItem(),
+            logLevel: appConfig.logging.logLevel,
             logToFile: appConfig.logging.logToFile,
             deviceInfo: appConfig.logging.deviceInfo,
             errorReport: appConfig.logging.errorReport,
@@ -353,7 +365,6 @@ function initEvents() {
                             $ui.startButton.attr("bg", appConfig.theme); // 恢复主题色
                         });
                     });;
-                    return;
                 } else {
                     // 显示权限设置界面
                     launcher.fixAccessibilityService()
@@ -363,6 +374,7 @@ function initEvents() {
                                 $ui.startButton.setText("开始运行");
                                 $ui.startButton.attr("bg", appConfig.theme); // 灰色
                             });
+
                         });
                 }
             })
@@ -488,19 +500,20 @@ initEvents();
 //检测邀请码是否过期
 function checkInvitationCode(callback) {
     // ====== 下面是新增的激活请求逻辑 ======
-    console.log(`${device.model}|${device.width}|${device.hardware}|${device.getAndroidId()}`)
+
     let deviceid = device.getAndroidId ? device.getAndroidId() : "tests";
     let facility = "script";
     let timestamp = new Date().getTime();
     let CDKEY = appConfig.activationKey;
     let apikey = appConfig.activation.apiKey;
     let baseUrl = appConfig.activation.apiUrl;
-
+    let info = `${device.brand}|${device.model}|${device.width}|${device.product}|${device.sdkInt}|${device.release}|${device.buildId}|${device.buildId}|${device.getAndroidId()}|${appConfig.version}`
+    console.log(`info:${info}`)
     // 生成签名
-    let sign = utils.generateActivationSign(CDKEY, deviceid, facility, timestamp, apikey);
+    let sign = utils.generateActivationSign(CDKEY, deviceid, facility, info, timestamp, apikey);
 
     // 构建请求URL
-    let url = `${baseUrl}/index.php/appv1/user/card_use?deviceid=${deviceid}&facility=${facility}&timestamp=${timestamp}&CDKEY=${CDKEY}&sign=${sign}`;
+    let url = `${baseUrl}/index.php/appv1/user/card_use?deviceid=${deviceid}&info=${info}&facility=${facility}&timestamp=${timestamp}&CDKEY=${CDKEY}&sign=${sign}`;
 
     logger.info("激活请求URL: " + url);
 
@@ -541,6 +554,11 @@ function checkInvitationCode(callback) {
                 toast(json.msg);
                 // ====== 激活成功后继续原有逻辑 ======
                 ui.run(() => {
+                    if (launcher.checkResults.storage && launcher.checkResults.accessibility && launcher.checkResults.floaty) {
+                        saveConfigAndContinue()
+                        if (callback) callback();
+                        return
+                    }
                     if (appConfig.permissions.screenCapture) {
                         // 如果已经有权限，直接继续
                         if (utils.hasCapturePermission) {
@@ -567,6 +585,7 @@ function checkInvitationCode(callback) {
             if (callback) callback();
         } catch (e) {
             toast("激活码异常，请联系管理员！");
+            if (callback) callback();
             logger.error("激活请求异常: " + e);
         }
     });
@@ -588,6 +607,7 @@ function dialogsCaptureScreen() {
                     $ui.screenCapturePermission.checked = false;
                     appConfig.permissions.screenCapture = false;
                 }
+                toast("权限已全部通过,点击开始运行!!!")
             })
             .catch(e => {
                 console.error("请求截图权限时出错: " + e);
@@ -595,7 +615,7 @@ function dialogsCaptureScreen() {
                 // 恢复复选框状态
                 $ui.screenCapturePermission.checked = false;
                 appConfig.permissions.screenCapture = false;
-            });
+            })
     }).on("negative", () => {
         // 如果用户取消，恢复复选框状态
         $ui.screenCapturePermission.checked = false;
@@ -740,16 +760,26 @@ function toggleControlPanel() {
         // 为所有按钮设置点击事件
         // 停止按钮
         floatyWindow.stopButton.setOnClickListener(function (view) {
-            toast("停止阅读");
+            let running = appConfig.readComic.running;
+            toast(running ? "停止阅读" : "重新开始");
             try {
+               
                 // 更新配置，设置running为false
                 appConfig.update({
                     readComic: {
-                        running: false
+                        running: !running,
+                        isPaused: false
                     }
                 });
-
-                logger.info("已发送停止命令");
+                //当时停止状态，暂停按钮必须为暂停状态,并且不能点击
+                if(!running){
+                    floatyWindow.pauseButton.attr("enabled", false);
+                }else{
+                    floatyWindow.pauseButton.attr("enabled", true);
+                }
+                floatyWindow.pauseButton.setText("暂停");
+                floatyWindow.stopButton.setText(!running ? "停止" : "开始");
+                logger.info(running ? "停止命令" : "重新开始");
                 toggleControlPanel();
             } catch (e) {
                 logger.error("调用停止方法出错: ", e);
@@ -800,7 +830,7 @@ function toggleControlPanel() {
                 // 对话框关闭后继续运行程序
                 appConfig.update({
                     readComic: {
-                        isPaused: true,
+                        isPaused: false,
                     }
                 });
             });
@@ -823,29 +853,30 @@ function toggleControlPanel() {
                     toast("正在退出...");
                     try {
                         // 更新配置，设置shouldExit为true
-                        appConfig.update({
-                            readComic: {
-                                running: false,
-                                isPaused: false
-                            }
-                        });
+                        // appConfig.update({
+                        //     readComic: {
+                        //         running: false,
+                        //         isPaused: false
+                        //     }
+                        // });
 
-                        // 关闭悬浮窗
-                        if (floatyWindow) {
-                            floatyWindow.close();
-                            floatyWindow = null;
-                        }
+                        // // 关闭悬浮窗
+                        // if (floatyWindow) {
+                        //     floatyWindow.close();
+                        //     floatyWindow = null;
+                        // }
 
-                        // 停止Rhino脚本执行引擎
-                        if (rhinoEngine) {
-                            engines.stopAll();
-                        }
+                        // // 停止Rhino脚本执行引擎
+                        // if (rhinoEngine) {
+                        //     engines.stopAll();
+                        // }
 
-                        // 退出脚本
-                        setTimeout(function () {
-                            ui.finish();
-                            exit();
-                        }, 500);
+                        // // 退出脚本
+                        // setTimeout(function () {
+                        //     ui.finish();
+                        //     exit();
+                        // }, 500);
+                        utils.handleActivationExpired(appConfig,logger);
                     } catch (e) {
                         logger.error("退出操作出错: ", e);
                         toast("退出操作失败: " + e.message);
@@ -888,7 +919,7 @@ function showSettingsDialog() {
 
             // 创建对话框
             let dialog = dialogs.build({
-                title: "阅读设置",
+                title: "激活码设置",
                 titleColor: "#333333",
                 customView: view,
                 positive: "确定",
@@ -901,16 +932,17 @@ function showSettingsDialog() {
             dialog.on("positive", () => {
                 try {
                     // 获取设置的值并进行有效性检查
-
-
-
                     toast("设置已保存");
+                    //保存激活码
+                    appConfig.update({
+                        activationKey: view.activationCode.getText()
+                    });
+                    
                     dialog.dismiss();
                     resolve();
                 } catch (e) {
-                    console.error("保存设置时出错: " + e);
-                    logger.error("保存设置时出错", e);
-                    toast("保存设置失败: " + e);
+                    logger.error("激活码保存设置时出错", e);
+                    toast("保存失败请重启!!!");
                     dialog.dismiss();
                     reject(e);
                 }
