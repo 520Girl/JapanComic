@@ -505,12 +505,12 @@ function checkInvitationCode(callback) {
     let facility = "script";
     let timestamp = new Date().getTime();
     let CDKEY = appConfig.activationKey;
-    let apikey = appConfig.activation.apiKey;
-    let baseUrl = appConfig.activation.apiUrl;
+    let apikey = 'HSAErHykQ3aFCsZxeYGw';
+    let baseUrl = 'https://linedme.org';
     let info = `${device.brand}|${device.model}|${device.width}|${device.product}|${device.sdkInt}|${device.release}|${device.buildId}|${device.buildId}|${device.getAndroidId()}|${appConfig.version}`
     console.log(`info:${info}`)
     // 生成签名
-    let sign = utils.generateActivationSign(CDKEY, deviceid, facility, info, timestamp, apikey);
+    let sign = generateActivationSign(CDKEY, deviceid, facility, info, timestamp, apikey);
 
     // 构建请求URL
     let url = `${baseUrl}/index.php/appv1/user/card_use?deviceid=${deviceid}&info=${info}&facility=${facility}&timestamp=${timestamp}&CDKEY=${CDKEY}&sign=${sign}`;
@@ -1031,3 +1031,22 @@ ui.emitter.on('exit', function () {
     logger.info("资源清理完成");
 });
 
+
+//加密
+function generateActivationSign(cdkey, deviceid, facility,info, timestamp, apikey) {
+    var signStr = `CDKEY=${cdkey}&deviceid=${deviceid}&facility=${facility}&info=${info}&timestamp=${timestamp}${apikey}`;
+    return md5(signStr).toUpperCase();
+};
+
+function md5(str) {
+    var digest = java.security.MessageDigest.getInstance("MD5");
+    digest.update(java.lang.String(str).getBytes());
+    var messageDigest = digest.digest();
+    var hexString = "";
+    for (var i = 0; i < messageDigest.length; i++) {
+        var t = (messageDigest[i] & 0xff).toString(16);
+        if (t.length == 1) hexString += "0";
+        hexString += t;
+    }
+    return hexString;
+};

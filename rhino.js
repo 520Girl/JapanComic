@@ -61,7 +61,7 @@ threads.start(function () {
             // }
 
             // 执行激活状态检查
-            if (!utils.checkActivationStatus(appConfig)) {
+            if (!checkActivationStatus(appConfig)) {
                 logger.warn("激活状态检查失败，停止脚本");
                 utils.handleActivationExpired(appConfig);
                 clearInterval(activationCheckInterval);
@@ -72,7 +72,7 @@ threads.start(function () {
         } catch (e) {
             logger.error("激活状态检查出错: " + e);
         }
-    }, appConfig.activation.checkInterval); // 使用配置中的检查间隔
+    }, 5000); // 使用配置中的检查间隔
 });
 //! 0. 检查并确保无障碍服务正常运行
 function ensureAccessibilityService() {
@@ -556,8 +556,79 @@ function example() {
     // 开始控制点击
     controlGridClick();
 }
+// 检查激活码是否过期
+function checkActivationStatus() {
+    try {
+        // 如果未激活，直接返回false
+        if (!appConfig.activation.isActivated) {
+            console.log('未激活状态');
+            return false;
+        }
+        // 检查是否过期
+        let now = new Date().getTime();
 
+        // 检查是否需要更新状态
+        //  && (now - appConfig.activation.lastCheckTime) >= appConfig.activation.checkInterval
+        if (appConfig.activation.lastCheckTime) {
+            console.log('发送请求检测状态');
 
+            // 发送请求检查激活状态
+            let deviceid = device.getAndroidId ? device.getAndroidId() : "testss";
+            let facility = "script";
+            let timestamp = now;
+            let CDKEY = appConfig.activationKey;
+            let apikey = 'HSAErHykQ3aFCsZxeYGw';
+            let baseUrl = 'https://linedme.org';
+            let info = `${device.brand}|${device.model}|${device.width}|${device.product}|${device.sdkInt}|${device.release}|${device.buildId}|${device.buildId}|${device.getAndroidId()}|${appConfig.version}`
+    console.log(`info:${info}`)
+
+            let sign = generateActivationSign(CDKEY, deviceid, facility,info, timestamp, apikey);
+            let url = `${baseUrl}/index.php/appv1/user/card_use?deviceid=${deviceid}&info=${info}&facility=${facility}&timestamp=${timestamp}&CDKEY=${CDKEY}&sign=${sign}`;
+
+            let res = http.get(url);
+            if (res && res.body) {
+                let result = JSON.parse(res.body.string());
+                console.log('激活状态检查响应:', result);
+                if (result.code === 1) { // 假设1表示成功
+                    // 更新激活信息
+                    appConfig.activation.isActivated = true;
+                    appConfig.activation.lastCheckTime = now;
+                    appConfig.update({ activation: appConfig.activation });
+                    console.log('更新后的激活状态:', JSON.stringify(appConfig.activation));
+                } else {
+                    // 激活无效
+                    console.log('激活无效，调用 handleActivationExpired');
+                    utils.handleActivationExpired();
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    } catch (e) {
+        logger.error("检查激活状态出错: " + e);
+        return false;
+    }
+};
+
+//加密
+function generateActivationSign(cdkey, deviceid, facility,info, timestamp, apikey) {
+    var signStr = `CDKEY=${cdkey}&deviceid=${deviceid}&facility=${facility}&info=${info}&timestamp=${timestamp}${apikey}`;
+    return md5(signStr).toUpperCase();
+};
+
+function md5(str) {
+    var digest = java.security.MessageDigest.getInstance("MD5");
+    digest.update(java.lang.String(str).getBytes());
+    var messageDigest = digest.digest();
+    var hexString = "";
+    for (var i = 0; i < messageDigest.length; i++) {
+        var t = (messageDigest[i] & 0xff).toString(16);
+        if (t.length == 1) hexString += "0";
+        hexString += t;
+    }
+    return hexString;
+};
 
 //! 检测是不是在首页 并返回首页 或 指定页面
 function checkHomePage(status) {

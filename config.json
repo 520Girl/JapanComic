@@ -17,7 +17,7 @@
         "y": 300
     },
     "firstRun": true,
-    "activationKey": "nidUNL915ub86f2",
+    "activationKey": "LnxsZ7WQjgOa6YA",
     "logging": {
         "enabled": true,
         "logLevel": "info",
@@ -40,9 +40,7 @@
     "activation":{
         "isActivated":false,
         "lastCheckTime":null,
-        "checkInterval": 300000,
-        "apiKey": "HSAErHykQ3aFCsZxeYGw",
-        "apiUrl": "https://linedme.org"
+        "checkInterval": 300000
     },
     "readHistory":{
         "enabled":true,
