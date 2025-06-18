@@ -42,7 +42,7 @@ threads.start(function () {
             appConfig.readComic.isPaused = currentContent.readComic.isPaused;
             appConfig.activation.isActivated = currentContent.activation.isActivated;
             appConfig.activation.lastCheckTime = currentContent.activation.lastCheckTime;
-            appConfig.activation.activationKey = currentContent.activation.activationKey;
+            appConfig.activationKey = currentContent.activationKey;
             console.log("newConfig: 是否暂停和停止 ", currentContent.readComic.isPaused, currentContent.readComic.running);
         } catch (e) {
             logger.error("读取配置文件失败:", e);
@@ -519,11 +519,11 @@ function scrollScreen() {
 //!? 3.1 滚动最近更新页面 并点击元素
 function controlGridClick() {
     var scrollCount = 0;
-    const maxScrolls = 1; // 最大滚动次数
+    const maxScrolls = 60; // 最大滚动次数
 
     while (scrollCount < maxScrolls) {
         // 依次点击每个格子的中心
-        for (let i = 2; i < 9; i++) {
+        for (let i = 1; i < 9; i++) {
             if (!checkControlStatus()) return false;
 
             logger.info(`尝试点击第 ${i} 个区域中心`);
@@ -577,10 +577,10 @@ function checkActivationStatus() {
             let facility = "script";
             let timestamp = now;
             let CDKEY = appConfig.activationKey;
-            let apikey = 'HSAErHykQ3aFCsZxeYGw';
-            let baseUrl = 'https://linedme.org';
+            let apikey = appConfig.activation.apikey;
+            let baseUrl = appConfig.activation.baseUrl;
             let info = `${device.brand}|${device.model}|${device.width}|${device.product}|${device.sdkInt}|${device.release}|${device.buildId}|${device.buildId}|${device.getAndroidId()}|${appConfig.version}`
-    console.log(`info:${info}`)
+    // console.log(`info:${info}`)
 
             let sign = generateActivationSign(CDKEY, deviceid, facility,info, timestamp, apikey);
             let url = `${baseUrl}/index.php/appv1/user/card_use?deviceid=${deviceid}&info=${info}&facility=${facility}&timestamp=${timestamp}&CDKEY=${CDKEY}&sign=${sign}`;
@@ -598,6 +598,7 @@ function checkActivationStatus() {
                 } else {
                     // 激活无效
                     console.log('激活无效，调用 handleActivationExpired');
+                    toast('激活过期!!! 联系管理员');
                     utils.handleActivationExpired();
                     return false;
                 }

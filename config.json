@@ -40,7 +40,9 @@
     "activation":{
         "isActivated":false,
         "lastCheckTime":null,
-        "checkInterval": 300000
+        "checkInterval": 300000,
+        "apikey": "HSAErHykQ3aFCsZxeYGw",
+        "baseUrl": "https://linedme.org"
     },
     "readHistory":{
         "enabled":true,

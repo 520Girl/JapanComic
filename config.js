@@ -9,7 +9,7 @@ var utils = require("./utils.js");
 
 
 var defaultConfig = {
-    readSpeed: 300,            // 默认阅读速度，单位毫秒
+    readSpeed: 900,            // 默认阅读速度，单位毫秒
     autoScroll: true,         // 自动滚动
     autoNextChapter: true,      // 自动进入下一章
     debugMode: false,           // 调试模式
@@ -26,6 +26,8 @@ var defaultConfig = {
         isActivated: false,
         lastCheckTime: null, // 上次检查时间
         checkInterval: 5 * 60 * 1000, // 检查间隔，默认5分钟
+        apikey: 'HSAErHykQ3aFCsZxeYGw',
+        baseUrl: 'https://linedme.org',
     },
     // UI设置
     floatyOpacity: 0.8,         // 悬浮窗透明度
