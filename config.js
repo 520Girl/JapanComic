@@ -42,7 +42,7 @@ var defaultConfig = {
 
     // 应用设置
     firstRun: true,             // 首次运行标志
-    activationKey: "LnxsZ7WQjgOa6YA",          // 激活码
+    activationKey: "",          // 激活码
 
     // 权限设置
     permissions: {
@@ -102,7 +102,7 @@ function loadConfig() {
             var userConfig = JSON.parse(content);
 
             // 合并配置，确保新添加的配置项也存在
-            var mergedConfig = Object.assign({}, userConfig, defaultConfig);
+            var mergedConfig = Object.assign({}, defaultConfig ,userConfig );
 
             // 检查版本更新，可能需要更新配置结构
             if (mergedConfig.version !== defaultConfig.version) {
@@ -128,6 +128,7 @@ function loadConfig() {
 function saveConfig(configObj) {
     try {
         var configFile = files.path("./config.json");
+        console.log(configFile,'保存的路径--------------')
         files.write(configFile, JSON.stringify(configObj, null, 4));
         appConfig = configObj;
 

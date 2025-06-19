@@ -474,8 +474,8 @@ function clickGridCenter(gridIndex) {
         }
 
         // 添加随机偏移，使点击更自然
-        const offsetX = random(-20, 20);
-        const offsetY = random(-20, 20);
+        const offsetX = random(-5, 5);
+        const offsetY = random(-5, 5);
 
         // 点击区域中心位置
         logger.info(`点击区域 ${gridIndex} 中心位置: (${targetGrid.centerX}, ${targetGrid.centerY})`);
@@ -588,7 +588,7 @@ function checkActivationStatus() {
             let res = http.get(url);
             if (res && res.body) {
                 let result = JSON.parse(res.body.string());
-                console.log('激活状态检查响应:', result);
+                console.log('结果', result);
                 if (result.code === 1) { // 假设1表示成功
                     // 更新激活信息
                     appConfig.activation.isActivated = true;
@@ -597,7 +597,7 @@ function checkActivationStatus() {
                     console.log('更新后的激活状态:', JSON.stringify(appConfig.activation));
                 } else {
                     // 激活无效
-                    console.log('激活无效，调用 handleActivationExpired');
+                    console.log('激活无效');
                     toast('激活过期!!! 联系管理员');
                     utils.handleActivationExpired();
                     return false;
@@ -607,6 +607,7 @@ function checkActivationStatus() {
 
         return true;
     } catch (e) {
+        toast('激活状态检查失败，请联系管理员！！');
         logger.error("检查激活状态出错: " + e);
         return false;
     }
@@ -920,7 +921,8 @@ function scrollToBottom() {
         try {
             var endTextFound = textContains("次の話を引っ張っています").exists() ||
                 textContains("マスター、もう終わりだ。~").exists() ||
-                textContains("主人、すでに最後まで来ましたよ~").exists();
+                textContains("主人、すでに最後まで来ましたよ~").exists() || 
+                textContains("なし、次の章をご覧ください。").exists();
 
             if (endTextFound) {
                 logger.info("检测到'次の話を引っ張っています~'文本，点击屏幕");

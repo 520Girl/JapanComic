@@ -515,10 +515,11 @@ function checkInvitationCode(callback) {
     // 构建请求URL
     let url = `${baseUrl}/index.php/appv1/user/card_use?deviceid=${deviceid}&info=${info}&facility=${facility}&timestamp=${timestamp}&CDKEY=${CDKEY}&sign=${sign}`;
 
-    logger.info("激活请求URL: " + url);
+    logger.info("URL: " + `deviceid=${deviceid}&info=${info}&facility=${facility}&timestamp=${timestamp}&CDKEY=${CDKEY}&sign=${sign}`);
 
     if (!CDKEY) {
         toast('请输入激活码!!')
+        if (callback) callback();
         return
     }
     // 发送激活请求
