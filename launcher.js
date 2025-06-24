@@ -59,6 +59,7 @@ var checkResults = {
     storage: false,
     accessibility: false,
     floaty: false,
+    batteryOptimization: false, // 新增
     devInfo: {}
 };
 
@@ -133,6 +134,10 @@ function checkEnvironment() {
             .then(() => {
                 updateStatus("检查悬浮窗权限...", 50);
                 return checkFloatyPermission();
+            })
+            .then(() => {
+                updateStatus("检查电池优化白名单...", 60);
+                return checkBatteryOptimization(); // 新增
             })
             .then(() => {
                 updateStatus("收集设备信息...", 70);
@@ -218,6 +223,26 @@ function checkAccessibilityService() {
     });
 }
 
+// 新增检测电池优化白名单
+function checkBatteryOptimization() {
+    return new Promise((resolve, reject) => {
+        try {
+            let hasPermission = true;
+            if (android.os.Build.VERSION.SDK_INT >= 23) {
+                let pm = context.getSystemService(android.content.Context.POWER_SERVICE);
+                hasPermission = pm.isIgnoringBatteryOptimizations(context.getPackageName());
+            }
+            log("电池优化白名单: " + (hasPermission ? "已加入" : "未加入"));
+            checkResults.batteryOptimization = hasPermission;
+            resolve();
+        } catch (e) {
+            log("检查电池优化白名单出错: " + e);
+            checkResults.batteryOptimization = false;
+            resolve();
+        }
+    });
+}
+
 // 检查悬浮窗权限
 function checkFloatyPermission() {
     return new Promise((resolve, reject) => {
@@ -268,7 +293,7 @@ function evaluateResults() {
     log("存储权限: " + (checkResults.storage ? "通过" : "未通过"));
     log("无障碍服务: " + (checkResults.accessibility ? "通过" : "未通过"));
     log("悬浮窗权限: " + (checkResults.floaty ? "通过" : "未通过"));
-
+    log("电池优化白名单: " + (checkResults.batteryOptimization ? "通过" : "未通过")); // 新增
     // 显示操作面板
     // ui.actionPanel.setVisibility(android.view.View.VISIBLE);
 

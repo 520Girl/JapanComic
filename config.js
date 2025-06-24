@@ -12,14 +12,15 @@ var defaultConfig = {
     readSpeed: 900,            // 默认阅读速度，单位毫秒
     autoScroll: true,         // 自动滚动
     autoNextChapter: true,      // 自动进入下一章
+    autoRestartComic: true,     //当漫画闪退时，自动重启漫画
     debugMode: false,           // 调试模式
     scrollSpeedIndex: "1",        // 速度索引
     // moreScrollTop:0, // 记录更多页面滚动到顶部的位置
     //duration 表示等待时间，comicLoading表示漫画加载时间，appStart表示应用启动时间, interval 表示检测数据更改的评率
     scrollParams: { // 这个控制的整个自动化流程的速度
-        "0": { duration: 3200, comicLoading: 20000, appStart: 6000, interval: 1500 }, // 慢速 
-        "1": { duration: 1000, comicLoading: 10000, appStart: 4000, interval: 800 }, // 中速
-        "2": { duration: 500, comicLoading: 5000, appStart: 2000, interval: 200 }   // 快速
+        "0": { duration: 3200, comicLoading: 40000, appStart: 6000, interval: 1500 }, // 慢速 
+        "1": { duration: 1250, comicLoading: 30000, appStart: 4000, interval: 800 }, // 中速
+        "2": { duration: 1000, comicLoading: 20000, appStart: 2000, interval: 200 }   // 快速
     },
     //激活码配置
     activation: {
@@ -38,11 +39,9 @@ var defaultConfig = {
         y: 300                  // 距离屏幕顶部的位置
     },
 
-
-
     // 应用设置
     firstRun: true,             // 首次运行标志
-    activationKey: "",          // 激活码
+    activationKey: "QRgT3b95ImY2Pi1",          // 激活码
 
     // 权限设置
     permissions: {
@@ -75,7 +74,7 @@ var defaultConfig = {
         maxFileSize: 1024 * 1024 * 5, // 单个日志文件最大大小 (1MB)
         maxFiles: 5,             // 最大保留日志文件数
         errorReport: false,      // 是否启用错误上报
-        reportUrl: "问题联系：uglygirlvip@gmail.com",           // 错误上报地址
+        reportUrl: "",           // 错误上报地址
         deviceInfo: true         // 是否收集设备信息
     },
     // 阅读漫画设置
@@ -102,7 +101,7 @@ function loadConfig() {
             var userConfig = JSON.parse(content);
 
             // 合并配置，确保新添加的配置项也存在
-            var mergedConfig = Object.assign({}, defaultConfig ,userConfig );
+            var mergedConfig = Object.assign({}, defaultConfig ,userConfig, {debugMode:false} );
 
             // 检查版本更新，可能需要更新配置结构
             if (mergedConfig.version !== defaultConfig.version) {
@@ -128,7 +127,7 @@ function loadConfig() {
 function saveConfig(configObj) {
     try {
         var configFile = files.path("./config.json");
-        console.log(configFile,'保存的路径--------------')
+        // console.log(configFile,'保存的路径--------------')
         files.write(configFile, JSON.stringify(configObj, null, 4));
         appConfig = configObj;
 
