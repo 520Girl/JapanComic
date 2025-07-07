@@ -89,7 +89,7 @@ var defaultConfig = {
     },
 
     // 版本信息
-    version: "1.0.0"
+    version: "1.0.4"
 };
 
 //! 2. 加载配置文件

@@ -8,18 +8,18 @@
   "launchConfig": {
     "displaySplash": true,
     "hideLogs": false,
-    "splashText": "Powered by Auto.js Pro",
+    "splashText": "  一个致力于LINE マンガ自动化阅读的程序",
     "stableMode": false
   },
   "main": "main.js",
-  "name": "My Project",
+  "name": "自动阅读",
   "optimization": {
     "obfuscateComponents": false,
     "removeAccessibilityService": false,
     "removeOpenCv": false,
     "unusedResources": false
   },
-  "packageName": "org.example.my_project",
+  "packageName": "org.line.autoread",
   "permissionConfig": {
     "requestListOnStartup": [
       "android.permission.WRITE_EXTERNAL_STORAGE"
@@ -28,5 +28,5 @@
   "scripts": {},
   "useFeatures": [],
   "versionCode": 1,
-  "versionName": "1.0.0"
+  "versionName": "1.0.4"
 }
